@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Chess Review</title>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-js.min.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.css" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -14,12 +14,12 @@
       <h1 class="title">♟ Chess Review</h1>
       <div class="controls">
         <div class="input-group">
-          <input
-            type="text"
-            id="gameUrl"
-            class="url-input"
-            placeholder="Paste a chess.com game URL (e.g. https://www.chess.com/game/live/123456789)"
-          />
+          <textarea
+            id="pgnInput"
+            class="pgn-input"
+            rows="4"
+            placeholder="Paste PGN here...&#10;&#10;e.g. 1. e4 e5 2. Nf3 Nc6 3. Bb5 a6"
+          ></textarea>
           <button id="loadBtn" class="btn btn-primary">Load Game</button>
         </div>
       </div>
@@ -42,7 +42,7 @@
           </label>
         </div>
         <div id="gameInfo" class="game-info">
-          <p class="placeholder-text">No game loaded yet. Paste a chess.com game URL and click "Load Game".</p>
+          <p class="placeholder-text">No game loaded yet. Paste a PGN and click "Load Game".</p>
         </div>
         <div id="moveList" class="move-list"></div>
       </aside>
@@ -50,8 +50,11 @@
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-js.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/1.0.0-beta.8/chess.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.js"></script>
+  <script type="module">
+    import { Chess } from "https://cdn.jsdelivr.net/npm/chess.js@1.0.0-beta.8/dist/esm/chess.js";
+    window.Chess = Chess;
+  </script>
   <script src="script.js"></script>
 </body>
 </html>

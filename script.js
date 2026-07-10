@@ -1,6 +1,6 @@
 $(document).ready(function () {
   const boardEl = $('#board');
-  const urlInput = $('#gameUrl');
+  const pgnInput = $('#pgnInput');
   const loadBtn = $('#loadBtn');
   const showDataCheckbox = $('#showData');
   const dataPanel = $('#dataPanel');
@@ -8,7 +8,6 @@ $(document).ready(function () {
   const moveList = $('#moveList');
 
   let board = null;
-  let game = null;
   let currentMoveIndex = -1;
   let moveHistory = [];
 
@@ -25,15 +24,6 @@ $(document).ready(function () {
     $(window).on('resize', function () {
       if (board) board.resize();
     });
-  }
-
-  // Parse chess.com game URL to extract game ID
-  function parseGameUrl(url) {
-    // Patterns:
-    // https://www.chess.com/game/live/123456789
-    // https://www.chess.com/game/daily/123456789
-    const match = url.match(/chess\.com\/game\/(?:live|daily)\/(\d+)/);
-    return match ? match[1] : null;
   }
 
   // Show error message
@@ -63,8 +53,7 @@ $(document).ready(function () {
     chess.loadPgn(pgnStr);
     const header = chess.header();
 
-    // Rebuild move history with FEN positions
-    chess.reset();
+    // Get move history with FEN positions (must be read before any reset)
     const fullHistory = chess.history({ verbose: true });
 
     return {
@@ -160,53 +149,42 @@ $(document).ready(function () {
     }
   }
 
-  // Load game from chess.com PGN export
-  async function loadGame(url) {
-    const gameId = parseGameUrl(url);
-
-    if (!gameId) {
-      showError('Invalid chess.com game URL. Please use a game/live or game/daily URL.');
+  // Load game from PGN text
+  function loadGame(pgnText) {
+    if (!pgnText || typeof pgnText !== 'string') {
+      showError('Please paste a PGN.');
       return;
     }
 
-    setLoading(true);
+    const trimmed = pgnText.trim();
+    if (!trimmed) {
+      showError('Please paste a PGN.');
+      return;
+    }
+
     gameInfo.empty();
     moveList.empty();
     board.position('start');
+    currentMoveIndex = -1;
 
     try {
-      const response = await fetch(
-        `https://www.chess.com/callback/live/pgn/${gameId}`,
-        { headers: { 'Accept': 'application/json' } }
-      );
+      const parsed = parsePgn(trimmed);
 
-      if (!response.ok) {
-        throw new Error(`Game not found (HTTP ${response.status})`);
+      if (!parsed.moves || parsed.moves.length === 0) {
+        throw new Error('No moves found in PGN. Make sure it contains valid chess moves.');
       }
 
-      // Response has a `pgn` property with the PGN string
-      const data = await response.json();
-      const pgnStr = data.pgn || data.game?.pgn || data;
-
-      if (!pgnStr || pgnStr.length < 10) {
-        throw new Error('Could not load PGN data for this game.');
-      }
-
-      const parsed = parsePgn(pgnStr);
       moveHistory = parsed.moves;
 
       displayGameInfo(parsed);
       displayMoveList(parsed);
 
-      // Show the board start position
+      // Reset board to start position
       board.position('start');
-      currentMoveIndex = -1;
 
     } catch (err) {
       showError(`Failed to load game: ${err.message}`);
       console.error('Load error:', err);
-    } finally {
-      setLoading(false);
     }
   }
 
@@ -221,17 +199,13 @@ $(document).ready(function () {
 
   // Load button click
   loadBtn.on('click', function () {
-    const url = urlInput.val().trim();
-    if (!url) {
-      showError('Please enter a chess.com game URL.');
-      return;
-    }
-    loadGame(url);
+    const pgn = pgnInput.val();
+    loadGame(pgn);
   });
 
-  // Enter key in input field
-  urlInput.on('keydown', function (e) {
-    if (e.key === 'Enter') {
+  // Ctrl+Enter / Cmd+Enter in textarea
+  pgnInput.on('keydown', function (e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
       loadBtn.click();
     }
   });
