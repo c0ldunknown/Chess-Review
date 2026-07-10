@@ -111,6 +111,65 @@ body {
 .board {
   width: 480px;
   height: 480px;
+  touch-action: none;
+}
+
+/* Game Navigation Controls */
+.game-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 16px;
+  width: 100%;
+}
+
+.ctrl-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border: 2px solid #2d2d4a;
+  border-radius: 12px;
+  background: #16213e;
+  color: #e0e0e0;
+  font-size: 1.4rem;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s, border-color 0.15s;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+}
+
+.ctrl-btn:hover {
+  background: #1e2a4a;
+  border-color: #4a90d9;
+}
+
+.ctrl-btn:active {
+  transform: scale(0.92);
+  background: #2d2d4a;
+}
+
+.ctrl-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.ctrl-btn:disabled:hover {
+  background: #16213e;
+  border-color: #2d2d4a;
+}
+
+.move-counter {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #a0a0c0;
+  min-width: 80px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
 }
 
 /* Data Section */
@@ -269,7 +328,7 @@ body {
   to { transform: rotate(360deg); }
 }
 
-/* Responsive */
+/* Responsive - Tablet */
 @media (max-width: 900px) {
   .main-content {
     flex-direction: column;
@@ -283,5 +342,103 @@ body {
 
   .data-section {
     width: 100%;
+  }
+}
+
+/* Responsive - Mobile */
+@media (max-width: 480px) {
+  .app {
+    padding: 12px;
+  }
+
+  .title {
+    font-size: 1.3rem;
+    margin-bottom: 12px;
+  }
+
+  .board-section {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .board {
+    width: min(90vw, 360px);
+    height: min(90vw, 360px);
+  }
+
+  .game-controls {
+    gap: 8px;
+    margin-top: 14px;
+  }
+
+  .ctrl-btn {
+    width: 48px;
+    height: 48px;
+    font-size: 1.2rem;
+    border-radius: 10px;
+  }
+
+  .move-counter {
+    font-size: 0.85rem;
+    min-width: 70px;
+  }
+
+  .controls {
+    width: 100%;
+  }
+
+  .input-group {
+    max-width: 100%;
+  }
+
+  .pgn-input {
+    font-size: 0.85rem;
+    padding: 8px 12px;
+    min-height: 50px;
+  }
+
+  .btn {
+    width: 100%;
+    padding: 12px 20px;
+    font-size: 1rem;
+  }
+
+  .data-section {
+    padding: 14px;
+    border-radius: 10px;
+  }
+
+  .data-header h2 {
+    font-size: 1rem;
+  }
+
+  .moves-grid {
+    font-size: 0.82rem;
+    gap: 3px 8px;
+  }
+
+  .move-list {
+    max-height: 300px;
+  }
+
+  .move-white,
+  .move-black {
+    padding: 4px 6px;
+  }
+
+  .game-detail {
+    font-size: 0.88rem;
+  }
+}
+
+/* iOS Safe Area Support */
+@supports (padding: max(0px)) {
+  .app {
+    padding-left: max(20px, env(safe-area-inset-left));
+    padding-right: max(20px, env(safe-area-inset-right));
+    padding-top: max(12px, env(safe-area-inset-top));
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
   }
 }

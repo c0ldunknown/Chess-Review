@@ -7,6 +7,13 @@ $(document).ready(function () {
   const gameInfo = $('#gameInfo');
   const moveList = $('#moveList');
 
+  // Navigation controls
+  const firstBtn = $('#firstBtn');
+  const prevBtn = $('#prevBtn');
+  const nextBtn = $('#nextBtn');
+  const lastBtn = $('#lastBtn');
+  const moveCounter = $('#moveCounter');
+
   let board = null;
   let currentMoveIndex = -1;
   let moveHistory = [];
@@ -45,6 +52,19 @@ $(document).ready(function () {
       ? '<span class="loading-spinner"></span> Loading...'
       : 'Load Game'
     );
+  }
+
+  // Update navigation button states and move counter
+  function updateNavState() {
+    const total = moveHistory.length;
+    const current = currentMoveIndex;
+
+    firstBtn.prop('disabled', current <= 0);
+    prevBtn.prop('disabled', current <= 0);
+    nextBtn.prop('disabled', current >= total - 1);
+    lastBtn.prop('disabled', current >= total - 1);
+
+    moveCounter.text(`${current + 1} / ${total}`);
   }
 
   // Parse PGN string into game details
@@ -132,7 +152,18 @@ $(document).ready(function () {
 
   // Navigate to a specific move
   function goToMove(index) {
+    if (!moveHistory || moveHistory.length === 0) return;
+    if (index < -1 || index >= moveHistory.length) return;
+
     currentMoveIndex = index;
+
+    if (currentMoveIndex === -1) {
+      board.position('start');
+      $('.move-white, .move-black').removeClass('active');
+      updateNavState();
+      return;
+    }
+
     const parsed = moveHistory[currentMoveIndex];
 
     // Update board
@@ -143,10 +174,90 @@ $(document).ready(function () {
     const activeEls = $(`.move-white[data-index="${index}"], .move-black[data-index="${index}"]`);
     activeEls.addClass('active');
 
-    // Scroll into view
-    if (activeEls.length) {
+    // Scroll into view (skip on touch devices to avoid unwanted page scroll)
+    if (activeEls.length && !('ontouchstart' in window)) {
       activeEls[0].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     }
+
+    updateNavState();
+  }
+
+  // Navigation button handlers
+  firstBtn.on('click', function () {
+    if (moveHistory.length === 0) return;
+    goToMove(0);
+  });
+
+  prevBtn.on('click', function () {
+    if (moveHistory.length === 0) return;
+    if (currentMoveIndex <= 0) return;
+    // If at the start position (index -1), go to last move
+    goToMove(currentMoveIndex - 1);
+  });
+
+  nextBtn.on('click', function () {
+    if (moveHistory.length === 0) return;
+    if (currentMoveIndex >= moveHistory.length - 1) return;
+    goToMove(currentMoveIndex + 1);
+  });
+
+  lastBtn.on('click', function () {
+    if (moveHistory.length === 0) return;
+    goToMove(moveHistory.length - 1);
+  });
+
+  // Keyboard Arrow Key handling
+  $(document).on('keydown', function (e) {
+    // Disable if typing in PGN textarea
+    if (pgnInput.is(':focus')) return;
+
+    if (!moveHistory || moveHistory.length === 0) return;
+
+    if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      goToMove(currentMoveIndex + 1);
+    } else if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      goToMove(currentMoveIndex - 1);
+    }
+  });
+
+  // Touch / Swipe handling for Chessboard
+  let touchStartX = 0;
+  let touchStartY = 0;
+  const minSwipeDistance = 40; // minimum distance in px to register a swipe
+  const boardDOM = boardEl[0];
+
+  if (boardDOM) {
+    boardDOM.addEventListener('touchstart', function (e) {
+      const touch = e.touches[0];
+      touchStartX = touch.clientX;
+      touchStartY = touch.clientY;
+    }, { passive: true });
+
+    boardDOM.addEventListener('touchmove', function (e) {
+      // Prevent scrolling while swiping on the board
+      e.preventDefault();
+    }, { passive: false });
+
+    boardDOM.addEventListener('touchend', function (e) {
+      if (!moveHistory || moveHistory.length === 0) return;
+      const touch = e.changedTouches[0];
+      const deltaX = touch.clientX - touchStartX;
+      const deltaY = touch.clientY - touchStartY;
+
+      // Check if the swipe is primarily horizontal and meets the minimum distance
+      if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > minSwipeDistance) {
+        e.preventDefault();
+        if (deltaX < 0) {
+          // Swiped left -> next move
+          goToMove(currentMoveIndex + 1);
+        } else {
+          // Swiped right -> previous move
+          goToMove(currentMoveIndex - 1);
+        }
+      }
+    }, { passive: false });
   }
 
   // Load game from PGN text
@@ -181,6 +292,7 @@ $(document).ready(function () {
 
       // Reset board to start position
       board.position('start');
+      updateNavState();
 
     } catch (err) {
       showError(`Failed to load game: ${err.message}`);

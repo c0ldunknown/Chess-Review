@@ -19,7 +19,24 @@
             class="pgn-input"
             rows="4"
             placeholder="Paste PGN here...&#10;&#10;e.g. 1. e4 e5 2. Nf3 Nc6 3. Bb5 a6"
-          ></textarea>
+          >[Event "Live Chess"]
+[Site "Chess.com"]
+[Date "2026.07.10"]
+[Round "?"]
+[White "vishal6877"]
+[Black "jkz1234"]
+[Result "0-1"]
+[TimeControl "600"]
+[WhiteElo "504"]
+[BlackElo "498"]
+[Termination "jkz1234 won by checkmate"]
+[ECO "C50"]
+[EndTime "10:28:36 GMT+0000"]
+[Link "https://www.chess.com/game/live/171373296294?move=0"]
+
+1. e4 e5 2. Nf3 Nc6 3. Nc3 Nf6 4. Bc4 Bc5 5. d3 d6 6. O-O O-O 7. Ng5 h6 8. Nf3
+Bg4 9. Nb5 Qd7 10. h3 Bh5 11. g4 Bg6 12. Nh4 Ne7 13. a4 a6 14. Nc3 Rfe8 15. g5
+Bh5 16. Qd2 Qxh3 17. Ng2 Bf3 18. Rd1 Qxg2# 0-1</textarea>
           <button id="loadBtn" class="btn btn-primary">Load Game</button>
         </div>
       </div>
@@ -30,6 +47,14 @@
       <!-- Board Section -->
       <section class="board-section">
         <div id="board" class="board"></div>
+        <!-- Game Navigation Controls -->
+        <div class="game-controls">
+          <button id="firstBtn" class="ctrl-btn" title="Go to start" aria-label="Go to start">⏮</button>
+          <button id="prevBtn" class="ctrl-btn" title="Previous move" aria-label="Previous move">◀</button>
+          <span id="moveCounter" class="move-counter">0 / 0</span>
+          <button id="nextBtn" class="ctrl-btn" title="Next move" aria-label="Next move">▶</button>
+          <button id="lastBtn" class="ctrl-btn" title="Go to end" aria-label="Go to end">⏭</button>
+        </div>
       </section>
 
       <!-- Data Section -->
