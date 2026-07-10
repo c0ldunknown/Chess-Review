@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chess Review</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-js.min.css" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app">
+    <!-- Header -->
+    <header class="header">
+      <h1 class="title">♟ Chess Review</h1>
+      <div class="controls">
+        <div class="input-group">
+          <input
+            type="text"
+            id="gameUrl"
+            class="url-input"
+            placeholder="Paste a chess.com game URL (e.g. https://www.chess.com/game/live/123456789)"
+          />
+          <button id="loadBtn" class="btn btn-primary">Load Game</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- Board Section -->
+      <section class="board-section">
+        <div id="board" class="board"></div>
+      </section>
+
+      <!-- Data Section -->
+      <aside id="dataPanel" class="data-section">
+        <div class="data-header">
+          <h2>Game Data</h2>
+          <label class="toggle-label">
+            <input type="checkbox" id="showData" checked />
+            <span class="toggle-text">Show Data</span>
+          </label>
+        </div>
+        <div id="gameInfo" class="game-info">
+          <p class="placeholder-text">No game loaded yet. Paste a chess.com game URL and click "Load Game".</p>
+        </div>
+        <div id="moveList" class="move-list"></div>
+      </aside>
+    </main>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-js.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/1.0.0-beta.8/chess.min.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
