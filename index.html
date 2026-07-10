@@ -46,11 +46,20 @@ Bh5 16. Qd2 Qxh3 17. Ng2 Bf3 18. Rd1 Qxg2# 0-1</textarea>
     <main class="main-content">
       <!-- Board Section -->
       <section class="board-section">
-        <div id="board" class="board"></div>
+        <div class="board-wrapper">
+          <div class="eval-bar-container">
+            <div id="evalBar" class="eval-bar">
+              <div id="evalBarFill" class="eval-bar-fill"></div>
+              <div id="evalBarText" class="eval-bar-text">0.0</div>
+            </div>
+          </div>
+          <div id="board" class="board"></div>
+        </div>
         <!-- Game Navigation Controls -->
         <div class="game-controls">
           <button id="firstBtn" class="ctrl-btn" title="Go to start" aria-label="Go to start">⏮</button>
           <button id="prevBtn" class="ctrl-btn" title="Previous move" aria-label="Previous move">◀</button>
+          <button id="flipBtn" class="ctrl-btn" title="Flip Board (f)" aria-label="Flip Board">🔁</button>
           <span id="moveCounter" class="move-counter">0 / 0</span>
           <button id="nextBtn" class="ctrl-btn" title="Next move" aria-label="Next move">▶</button>
           <button id="lastBtn" class="ctrl-btn" title="Go to end" aria-label="Go to end">⏭</button>
@@ -69,17 +78,50 @@ Bh5 16. Qd2 Qxh3 17. Ng2 Bf3 18. Rd1 Qxg2# 0-1</textarea>
         <div id="gameInfo" class="game-info">
           <p class="placeholder-text">No game loaded yet. Paste a PGN and click "Load Game".</p>
         </div>
+        
+        <!-- Analysis Panel -->
+        <div class="analysis-panel">
+          <h3>Engine Analysis</h3>
+          <div class="analysis-controls">
+            <label for="depthSelect">Depth:</label>
+            <select id="depthSelect" class="depth-select">
+              <option value="10">10</option>
+              <option value="12">12</option>
+              <option value="15" selected>15</option>
+              <option value="18">18</option>
+              <option value="20">20</option>
+            </select>
+            <button id="analyzeGameBtn" class="btn btn-secondary">Analyze Game</button>
+          </div>
+          <div id="analysisProgress" class="analysis-progress hidden">
+            <div class="progress-bar"><div id="progressFill" class="progress-bar-fill"></div></div>
+            <span id="progressText">Analyzing move 0/0...</span>
+          </div>
+          <div id="engineStatus" class="engine-status">
+            <div class="status-row"><strong>Evaluation:</strong> <span id="evalScore">0.0</span></div>
+            <div class="status-row"><strong>Best Move:</strong> <span id="bestMoveText">-</span></div>
+          </div>
+        </div>
+
+        <!-- Eval Chart -->
+        <div class="chart-container">
+          <h3>Evaluation Graph</h3>
+          <canvas id="evalChart"></canvas>
+        </div>
+
         <div id="moveList" class="move-list"></div>
       </aside>
     </main>
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.js"></script>
   <script type="module">
     import { Chess } from "https://cdn.jsdelivr.net/npm/chess.js@1.0.0-beta.8/dist/esm/chess.js";
     window.Chess = Chess;
   </script>
+  <script src="analysis.js"></script>
   <script src="script.js"></script>
 </body>
 </html>
