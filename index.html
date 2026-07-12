@@ -18,7 +18,7 @@
             id="pgnInput"
             class="pgn-input"
             rows="4"
-            placeholder="Paste PGN here...&#10;&#10;e.g. 1. e4 e5 2. Nf3 Nc6 3. Bb5 a6"
+
           >[Event "Live Chess"]
 [Site "Chess.com"]
 [Date "2026.07.10"]
@@ -53,7 +53,13 @@ Bh5 16. Qd2 Qxh3 17. Ng2 Bf3 18. Rd1 Qxg2# 0-1</textarea>
               <div id="evalBarText" class="eval-bar-text">0.0</div>
             </div>
           </div>
-          <div id="board" class="board"></div>
+          <div class="board-container">
+            <div id="board" class="board"></div>
+            <div id="boardOverlays" class="board-overlays">
+              <svg id="arrowSvg" class="arrow-svg"></svg>
+              <div id="badgeContainer" class="badge-container"></div>
+            </div>
+          </div>
         </div>
         <!-- Game Navigation Controls -->
         <div class="game-controls">

@@ -8,6 +8,7 @@ class ChessAnalysis {
     this.currentPositionFen = '';
     this.targetDepth = 15;
     this.cdnUrl = 'https://cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.2/stockfish.js';
+    this._requestId = 0;
   }
 
   async init() {
@@ -45,15 +46,25 @@ class ChessAnalysis {
       this.send('stop');
       this.analyzing = false;
     }
+    // Clear callbacks to prevent stale responses from triggering
+    this.onInfoCallback = null;
+    this.onCompleteCallback = null;
   }
 
   analyzePosition(fen, depth = 15, onInfo = null, onComplete = null) {
     this.stop();
+
+    this._requestId++;
+    const reqId = this._requestId;
     
     this.currentPositionFen = fen;
     this.targetDepth = depth;
-    this.onInfoCallback = onInfo;
-    this.onCompleteCallback = onComplete;
+    this.onInfoCallback = onInfo ? function(info) {
+      if (reqId === this._requestId) onInfo(info);
+    }.bind(this) : null;
+    this.onCompleteCallback = onComplete ? function(bestMove) {
+      if (reqId === this._requestId) onComplete(bestMove);
+    }.bind(this) : null;
     this.analyzing = true;
 
     this.send('position fen ' + fen);
@@ -66,14 +77,22 @@ class ChessAnalysis {
     if (line.startsWith('info') && this.analyzing) {
       const parsed = this.parseInfoLine(line);
       if (parsed && this.onInfoCallback) {
-        this.onInfoCallback(parsed);
+        try {
+          this.onInfoCallback(parsed);
+        } catch (e) {
+          console.error('Info callback error:', e);
+        }
       }
     } else if (line.startsWith('bestmove') && this.analyzing) {
       this.analyzing = false;
       const parts = line.split(' ');
       const bestMove = parts[1];
       if (this.onCompleteCallback) {
-        this.onCompleteCallback(bestMove);
+        try {
+          this.onCompleteCallback(bestMove);
+        } catch (e) {
+          console.error('Complete callback error:', e);
+        }
       }
     }
   }
@@ -146,13 +165,13 @@ class ChessAnalysis {
     // For Black: positive diff is a loss of advantage (e.g. -1.5 -> -0.5 is +1.0)
     const loss = color === 'w' ? -diff : diff;
 
-    if (loss <= 10) {
+    if (loss <= 0.1) {
       return { classification: 'Excellent', symbol: '🟢', classClass: 'move-excellent', desc: 'An excellent move' };
-    } else if (loss <= 30) {
+    } else if (loss <= 0.3) {
       return { classification: 'Good', symbol: '🔵', classClass: 'move-good', desc: 'A good move' };
-    } else if (loss <= 100) {
+    } else if (loss <= 0.9) {
       return { classification: 'Inaccuracy', symbol: '🟡', classClass: 'move-inaccuracy', desc: 'An inaccuracy' };
-    } else if (loss <= 300) {
+    } else if (loss <= 2.5) {
       return { classification: 'Mistake', symbol: '🟠', classClass: 'move-mistake', desc: 'A mistake' };
     } else {
       return { classification: 'Blunder', symbol: '🔴', classClass: 'move-blunder', desc: 'A blunder!' };

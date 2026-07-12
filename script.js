@@ -41,10 +41,133 @@ $(document).ready(function () {
       showNotation: true,
     });
 
+    // Set up SVG arrowhead marker
+    setupArrowMarker();
+
     // Resize board to fit container
     $(window).on('resize', function () {
       if (board) board.resize();
     });
+  }
+
+  /** Set up the SVG arrowhead marker definition */
+  function setupArrowMarker() {
+    const svg = document.getElementById('arrowSvg');
+    if (!svg) return;
+    svg.innerHTML = '<defs>' +
+      '<marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">' +
+        '<polygon points="0 0, 10 3.5, 0 7" class="best-move-arrow-head" />' +
+      '</marker>' +
+    '</defs>';
+  }
+
+  /**
+   * Convert a square name (e.g. "e2") to pixel coordinates relative to the board overlays container.
+   * Accounts for the board's flip state automatically via DOM positions.
+   * @param {string} square - Square name like "e2"
+   * @returns {{x: number, y: number}} Center pixel coordinates
+   */
+  function getSquareCenter(square) {
+    const boardEl = document.getElementById('board');
+    const squareEl = boardEl.querySelector('.square-' + square);
+    if (!squareEl) return { x: 0, y: 0 };
+
+    const boardRect = boardEl.getBoundingClientRect();
+    const squareRect = squareEl.getBoundingClientRect();
+
+    return {
+      x: squareRect.left - boardRect.left + squareRect.width / 2,
+      y: squareRect.top - boardRect.top + squareRect.height / 2,
+    };
+  }
+
+  /**
+   * Render a classification badge on the destination square of the current move.
+   * The badge shows the classification symbol (⭐, 🟢, 🔵, 🟡, 🟠, 🔴).
+   */
+  function renderPieceBadge() {
+    const container = document.getElementById('badgeContainer');
+    if (!container) return;
+    container.innerHTML = '';
+
+    if (currentMoveIndex < 0 || currentMoveIndex >= moveHistory.length) return;
+
+    const move = moveHistory[currentMoveIndex];
+    if (!move.classification) return;
+
+    const toSquare = move.uci.substring(2, 4);
+    if (!toSquare) return;
+
+    const center = getSquareCenter(toSquare);
+    if (center.x === 0 && center.y === 0) return;
+
+    const badge = document.createElement('div');
+    badge.className = 'piece-badge ' + move.classification.classClass;
+    badge.textContent = move.classification.symbol;
+    badge.style.left = center.x + 'px';
+    badge.style.top = center.y + 'px';
+    badge.title = move.classification.classification + ': ' + move.classification.desc;
+
+    container.appendChild(badge);
+  }
+
+  /**
+   * Render a best-move arrow on the board.
+   * Draws an SVG arrow from the source square to the target square of the engine's recommended best move.
+   */
+  function renderBestMoveArrow() {
+    const svg = document.getElementById('arrowSvg');
+    if (!svg) return;
+
+    // Clear existing arrows (keep defs)
+    const existingArrows = svg.querySelectorAll('.best-move-arrow');
+    existingArrows.forEach(function(el) { el.remove(); });
+
+    if (currentMoveIndex < 0 || currentMoveIndex >= moveHistory.length) return;
+
+    const move = moveHistory[currentMoveIndex];
+    const bestMove = move.bestMove;
+    if (!bestMove || bestMove.length < 4) return;
+
+    const fromSquare = bestMove.substring(0, 2);
+    const toSquare = bestMove.substring(2, 4);
+
+    const fromCenter = getSquareCenter(fromSquare);
+    const toCenter = getSquareCenter(toSquare);
+
+    if (fromCenter.x === 0 && fromCenter.y === 0) return;
+    if (toCenter.x === 0 && toCenter.y === 0) return;
+
+    // Calculate a slight curve offset for a nicer arrow
+    const dx = toCenter.x - fromCenter.x;
+    const dy = toCenter.y - fromCenter.y;
+    const midX = (fromCenter.x + toCenter.x) / 2;
+    const midY = (fromCenter.y + toCenter.y) / 2;
+    // Perpendicular offset for curve (small)
+    const len = Math.sqrt(dx * dx + dy * dy);
+    const offset = Math.min(len * 0.15, 15);
+    const perpX = -dy / len * offset;
+    const perpY = dx / len * offset;
+
+    // Create a curved path (quadratic bezier)
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', 'M ' + fromCenter.x + ' ' + fromCenter.y + ' Q ' + (midX + perpX) + ' ' + (midY + perpY) + ' ' + toCenter.x + ' ' + toCenter.y);
+    path.classList.add('best-move-arrow');
+    svg.appendChild(path);
+  }
+
+  /**
+   * Hide/clear all board overlays (badges and arrows).
+   */
+  function hideOverlays() {
+    const badgeContainer = document.getElementById('badgeContainer');
+    if (badgeContainer) badgeContainer.innerHTML = '';
+
+    const svg = document.getElementById('arrowSvg');
+    if (svg) {
+      const existingArrows = svg.querySelectorAll('.best-move-arrow');
+      existingArrows.forEach(function(el) { el.remove(); });
+    }
   }
 
   // Lazy-initialize the Stockfish engine
@@ -92,7 +215,7 @@ $(document).ready(function () {
     nextBtn.prop('disabled', current >= total - 1);
     lastBtn.prop('disabled', current >= total - 1);
 
-    moveCounter.text(`${current + 1} / ${total}`);
+    moveCounter.text((current + 1) + ' / ' + total);
   }
 
   // Parse PGN string into game details
@@ -112,14 +235,16 @@ $(document).ready(function () {
     return {
       header: header,
       startFen: parsedStartFen,
-      moves: fullHistory.map((m, i) => ({
-        num: Math.floor(i / 2) + 1,
-        color: m.color,
-        san: m.san,
-        uci: m.from + m.to + (m.promotion || ''),
-        fen: m.after,
-        beforeFen: m.before || (i === 0 ? parsedStartFen : fullHistory[i - 1].after)
-      })),
+      moves: fullHistory.map(function(m, i) {
+        return {
+          num: Math.floor(i / 2) + 1,
+          color: m.color,
+          san: m.san,
+          uci: m.from + m.to + (m.promotion || ''),
+          fen: m.after,
+          beforeFen: m.before || (i === 0 ? parsedStartFen : fullHistory[i - 1].after)
+        };
+      }),
       pgn: pgnStr,
     };
   }
@@ -146,10 +271,10 @@ $(document).ready(function () {
 
     if (eco) details.push({ label: 'ECO', value: eco });
 
-    details.forEach((d) => {
+    details.forEach(function(d) {
       if (!d.value) return;
       $('<p class="game-detail"></p>')
-        .html(`<strong>${d.label}:</strong> ${d.value}`)
+        .html('<strong>' + d.label + ':</strong> ' + d.value)
         .appendTo(gameInfo);
     });
   }
@@ -162,20 +287,20 @@ $(document).ready(function () {
 
     const grid = $('<div class="moves-grid"></div>').appendTo(moveList);
 
-    parsed.moves.forEach((move, i) => {
+    parsed.moves.forEach(function(move, i) {
       const badge = move.classification 
-        ? `<span class="move-badge ${move.classification.classClass}" title="${move.classification.classification}: ${move.classification.desc}">${move.classification.symbol}</span>` 
+        ? '<span class="move-badge ' + move.classification.classClass + '" title="' + move.classification.classification + ': ' + move.classification.desc + '">' + move.classification.symbol + '</span>' 
         : '';
 
       if (move.color === 'w') {
-        const numCell = $(`<div class="move-number">${move.num}.</div>`);
+        const numCell = $('<div class="move-number">' + move.num + '.</div>');
         const whiteCell = $(
-          `<div class="move-white" data-index="${i}">${move.san} ${badge}</div>`
+          '<div class="move-white" data-index="' + i + '">' + move.san + ' ' + badge + '</div>'
         );
         grid.append(numCell, whiteCell);
       } else {
         const blackCell = $(
-          `<div class="move-black" data-index="${i}">${move.san} ${badge}</div>`
+          '<div class="move-black" data-index="' + i + '">' + move.san + ' ' + badge + '</div>'
         );
         grid.append(blackCell);
       }
@@ -194,7 +319,7 @@ $(document).ready(function () {
     const from = uci.substring(0, 2);
     const to = uci.substring(2, 4);
     const promo = uci.substring(4);
-    return `${from} → ${to}${promo ? ` (${promo.toUpperCase()})` : ''}`;
+    return from + ' → ' + to + (promo ? ' (' + promo.toUpperCase() + ')' : '');
   }
 
   // Map Centipawn/Mate Score to Eval Bar Percentage (0% for Black win, 100% for White win)
@@ -211,17 +336,17 @@ $(document).ready(function () {
   function updateEvalUI(score, scoreType, bestMove = '') {
     let text = '0.0';
     if (scoreType === 'mate') {
-      text = score > 0 ? `M${score}` : `-M${Math.abs(score)}`;
+      text = score > 0 ? 'M' + score : '-M' + Math.abs(score);
     } else {
       const pawns = (score / 100).toFixed(2);
-      text = score > 0 ? `+${pawns}` : pawns;
+      text = score > 0 ? '+' + pawns : pawns;
     }
     
     $('#evalScore').text(text);
     $('#evalBarText').text(text);
 
     const percent = scoreToPercentage(score, scoreType);
-    $('#evalBarFill').css('height', `${percent}%`);
+    $('#evalBarFill').css('height', percent + '%');
     
     if (bestMove) {
       $('#bestMoveText').text(bestMove);
@@ -251,6 +376,7 @@ $(document).ready(function () {
     if (currentMoveIndex === -1) {
       board.position('start');
       $('.move-white, .move-black').removeClass('active');
+      hideOverlays();
       
       if (engineInitialized && !isAnalyzingGame) {
         const depth = parseInt($('#depthSelect').val()) || 15;
@@ -262,14 +388,14 @@ $(document).ready(function () {
           engine.analyzePosition(
             startFen,
             depth,
-            (info) => {
+            function(info) {
               if (info.scoreType) {
                 lastScore = info.score;
                 lastScoreType = info.scoreType;
                 updateEvalUI(info.score, info.scoreType);
               }
             },
-            (bestMove) => {
+            function(bestMove) {
               startPositionEval = { score: lastScore, scoreType: lastScoreType, bestMove };
               updateEvalUI(lastScore, lastScoreType, formatUciMove(bestMove));
             }
@@ -292,8 +418,12 @@ $(document).ready(function () {
 
     // Highlight active move
     $('.move-white, .move-black').removeClass('active');
-    const activeEls = $(`.move-white[data-index="${index}"], .move-black[data-index="${index}"]`);
+    const activeEls = $('.move-white[data-index="' + index + '"], .move-black[data-index="' + index + '"]');
     activeEls.addClass('active');
+
+    // Render overlays for this move
+    renderPieceBadge();
+    renderBestMoveArrow();
 
     // Trigger analysis or display cached analysis for current move
     if (engineInitialized && !isAnalyzingGame) {
@@ -308,14 +438,14 @@ $(document).ready(function () {
         engine.analyzePosition(
           parsed.fen,
           depth,
-          (info) => {
+          function(info) {
             if (info.scoreType) {
               lastScore = info.score;
               lastScoreType = info.scoreType;
               updateEvalUI(info.score, info.scoreType);
             }
           },
-          (bestMove) => {
+          function(bestMove) {
             parsed.eval = lastScore;
             parsed.evalType = lastScoreType;
             parsed.bestMove = bestMove;
@@ -364,7 +494,7 @@ $(document).ready(function () {
     analysisQueue = [
       { index: -1, fen: startFen }
     ];
-    moveHistory.forEach((move, i) => {
+    moveHistory.forEach(function(move, i) {
       analysisQueue.push({ index: i, fen: move.fen });
     });
 
@@ -377,7 +507,17 @@ $(document).ready(function () {
     engine.stop();
     $('#analyzeGameBtn').text('Analyze Game');
     $('#analysisProgress').addClass('hidden');
-    goToMove(currentMoveIndex);
+    // Show cached eval if available without re-triggering analysis
+    if (currentMoveIndex >= 0 && currentMoveIndex < moveHistory.length) {
+      const parsed = moveHistory[currentMoveIndex];
+      if (parsed.eval !== undefined) {
+        updateEvalUI(parsed.eval, parsed.evalType, formatUciMove(parsed.bestMove));
+      }
+      renderPieceBadge();
+      renderBestMoveArrow();
+    } else if (currentMoveIndex === -1 && startPositionEval) {
+      updateEvalUI(startPositionEval.score, startPositionEval.scoreType, formatUciMove(startPositionEval.bestMove));
+    }
   }
 
   function runNextAnalysisQueueItem(depth) {
@@ -390,23 +530,63 @@ $(document).ready(function () {
 
     const item = analysisQueue[analysisIndex];
     const progressPercent = Math.round((analysisIndex / analysisQueue.length) * 100);
-    $('#progressFill').css('width', `${progressPercent}%`);
-    $('#progressText').text(`Analyzing position ${analysisIndex} / ${analysisQueue.length - 1}...`);
+    $('#progressFill').css('width', progressPercent + '%');
+    $('#progressText').text('Analyzing position ' + analysisIndex + ' / ' + (analysisQueue.length - 1) + '...');
+
+    // Check if position is terminal (checkmate/stalemate) — skip Stockfish analysis
+    const chess = new Chess(item.fen);
+    if (chess.isGameOver()) {
+      // Terminal position: no need to analyze
+      const lastScore = 0;
+      const lastScoreType = 'cp';
+      const bestMove = '';
+      
+      if (item.index === -1) {
+        startPositionEval = { score: lastScore, scoreType: lastScoreType, bestMove };
+      } else {
+        moveHistory[item.index].eval = lastScore;
+        moveHistory[item.index].evalType = lastScoreType;
+        moveHistory[item.index].bestMove = bestMove;
+      }
+
+      analysisIndex++;
+      setTimeout(function() { runNextAnalysisQueueItem(depth); }, 0);
+      return;
+    }
 
     let lastScore = 0;
     let lastScoreType = 'cp';
+    let timedOut = false;
+
+    // Safety timeout: if Stockfish doesn't respond within 30s, skip this position
+    var timeoutId = setTimeout(function() {
+      timedOut = true;
+      engine.stop();
+      
+      if (item.index === -1) {
+        startPositionEval = { score: lastScore, scoreType: lastScoreType, bestMove: '' };
+      } else {
+        moveHistory[item.index].eval = lastScore;
+        moveHistory[item.index].evalType = lastScoreType;
+        moveHistory[item.index].bestMove = '';
+      }
+
+      analysisIndex++;
+      runNextAnalysisQueueItem(depth);
+    }, 30000);
 
     engine.analyzePosition(
       item.fen,
       depth,
-      (info) => {
+      function(info) {
         if (info.scoreType) {
           lastScore = info.score;
           lastScoreType = info.scoreType;
           updateEvalUI(info.score, info.scoreType);
         }
       },
-      (bestMove) => {
+      function(bestMove) {
+        clearTimeout(timeoutId);
         if (item.index === -1) {
           startPositionEval = { score: lastScore, scoreType: lastScoreType, bestMove };
         } else {
@@ -444,8 +624,8 @@ $(document).ready(function () {
     data.push(startScore / 100);
 
     // Each move's eval
-    moveHistory.forEach((move, i) => {
-      const moveLabel = `${move.num}${move.color === 'w' ? '.' : '...'} ${move.san}`;
+    moveHistory.forEach(function(move, i) {
+      const moveLabel = move.num + (move.color === 'w' ? '.' : '...') + ' ' + move.san;
       labels.push(moveLabel);
 
       let score = move.eval || 0;
@@ -456,7 +636,7 @@ $(document).ready(function () {
     });
 
     // Clamp extreme values for better visualization
-    const clampedData = data.map(v => Math.max(-10, Math.min(10, v)));
+    const clampedData = data.map(function(v) { return Math.max(-10, Math.min(10, v)); });
 
     // Determine colors for each segment
     const segmentColors = [];
@@ -485,7 +665,7 @@ $(document).ready(function () {
           backgroundColor: 'rgba(74, 144, 217, 0.1)',
           borderWidth: 2,
           pointRadius: 3,
-          pointBackgroundColor: clampedData.map((v, i) => {
+          pointBackgroundColor: clampedData.map(function(v, i) {
             if (i === 0) return '#4a90d9';
             const prev = clampedData[i - 1];
             const diff = v - prev;
@@ -510,7 +690,7 @@ $(document).ready(function () {
               label: function(context) {
                 const val = context.parsed.y;
                 const sign = val > 0 ? '+' : '';
-                return `Evaluation: ${sign}${val.toFixed(2)}`;
+                return 'Evaluation: ' + sign + val.toFixed(2);
               }
             }
           }
@@ -534,7 +714,7 @@ $(document).ready(function () {
               font: { size: 10 },
               callback: function(value) {
                 const sign = value > 0 ? '+' : '';
-                return `${sign}${value.toFixed(1)}`;
+                return sign + value.toFixed(1);
               }
             },
             grid: {
@@ -633,7 +813,7 @@ $(document).ready(function () {
   }
 
   function classifyAllMoves() {
-    moveHistory.forEach((move, i) => {
+    moveHistory.forEach(function(move, i) {
       let prevScore = 0;
       let prevScoreType = 'cp';
       let prevBestMove = '';
@@ -796,12 +976,12 @@ $(document).ready(function () {
       updateNavState();
 
       // Lazy-init engine and analyze start position
-      initEngine().then(() => {
+      initEngine().then(function() {
         goToMove(-1);
       });
 
     } catch (err) {
-      showError(`Failed to load game: ${err.message}`);
+      showError('Failed to load game: ' + err.message);
       console.error('Load error:', err);
     }
   }

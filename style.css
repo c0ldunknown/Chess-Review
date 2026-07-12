@@ -113,6 +113,7 @@ body {
   gap: 12px;
   align-items: stretch;
   height: 480px;
+  position: relative;
 }
 
 .eval-bar-container {
@@ -160,6 +161,122 @@ body {
   width: 480px;
   height: 480px;
   touch-action: none;
+}
+
+/* Board Container for Overlay Positioning */
+.board-container {
+  position: relative;
+  width: 480px;
+  height: 480px;
+}
+
+/* Board Overlays */
+.board-overlays {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.arrow-svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.badge-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.piece-badge {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  font-size: 0.7rem;
+  font-weight: bold;
+  z-index: 15;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+  line-height: 1;
+  text-shadow: 0 0 2px rgba(0,0,0,0.5);
+}
+
+.piece-badge.move-best {
+  width: 24px;
+  height: 24px;
+  font-size: 0.75rem;
+}
+
+/* Arrow styling */
+.best-move-arrow {
+  fill: none;
+  stroke: rgba(46, 204, 113, 0.7);
+  stroke-width: 3;
+  stroke-linecap: round;
+  marker-end: url(#arrowhead);
+}
+
+.best-move-arrow-head {
+  fill: rgba(46, 204, 113, 0.7);
+}
+
+/* Responsive sizing */
+@media (max-width: 900px) {
+  .board {
+    width: 360px;
+    height: 360px;
+  }
+  .board-container {
+    width: 360px;
+    height: 360px;
+  }
+  .piece-badge {
+    width: 18px;
+    height: 18px;
+    font-size: 0.6rem;
+  }
+  .piece-badge.move-best {
+    width: 20px;
+    height: 20px;
+    font-size: 0.65rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .board {
+    width: min(90vw, 360px);
+    height: min(90vw, 360px);
+  }
+  .board-container {
+    width: min(90vw, 360px);
+    height: min(90vw, 360px);
+  }
+  .piece-badge {
+    width: 16px;
+    height: 16px;
+    font-size: 0.55rem;
+  }
+  .piece-badge.move-best {
+    width: 18px;
+    height: 18px;
+    font-size: 0.6rem;
+  }
 }
 
 /* Game Navigation Controls */
@@ -485,8 +602,8 @@ body {
 /* Chart Container */
 .chart-container {
   margin-bottom: 20px;
-  background: #1b2644;
-  border: 1px solid #2d3d66;
+  background: #184326;
+  border: 1px solid #29754a;
   border-radius: 8px;
   padding: 12px;
   height: 240px;
