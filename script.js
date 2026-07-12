@@ -82,7 +82,7 @@ $(document).ready(function () {
   }
 
   /**
-   * Render a classification badge on the destination square of the current move.
+   * Render a classification badge in the top right corner of the destination square.
    * The badge shows the classification symbol (⭐, 🟢, 🔵, 🟡, 🟠, 🔴).
    */
   function renderPieceBadge() {
@@ -98,15 +98,26 @@ $(document).ready(function () {
     const toSquare = move.uci.substring(2, 4);
     if (!toSquare) return;
 
-    const center = getSquareCenter(toSquare);
-    if (center.x === 0 && center.y === 0) return;
+    // Get pixel position of the destination square
+    const boardEl = document.getElementById('board');
+    const squareEl = boardEl.querySelector('.square-' + toSquare);
+    if (!squareEl) return;
+
+    const boardRect = boardEl.getBoundingClientRect();
+    const squareRect = squareEl.getBoundingClientRect();
+
+    // Top-right corner of the square (relative to the board overlays container)
+    const x = squareRect.left - boardRect.left + squareRect.width;
+    const y = squareRect.top - boardRect.top;
 
     const badge = document.createElement('div');
     badge.className = 'piece-badge ' + move.classification.classClass;
     badge.textContent = move.classification.symbol;
-    badge.style.left = center.x + 'px';
-    badge.style.top = center.y + 'px';
     badge.title = move.classification.classification + ': ' + move.classification.desc;
+
+    // Position in top right corner of the square
+    badge.style.left = x + 'px';
+    badge.style.top = y + 'px';
 
     container.appendChild(badge);
   }
@@ -638,16 +649,40 @@ $(document).ready(function () {
     // Clamp extreme values for better visualization
     const clampedData = data.map(function(v) { return Math.max(-10, Math.min(10, v)); });
 
-    // Determine colors for each segment
+    // Classification color map (matches CSS class colors)
+    const classificationColors = {
+      'move-brilliant': '#9b59b6',
+      'move-best': '#f1c40f',
+      'move-great': '#1abc9c',
+      'move-excellent': '#2ecc71',
+      'move-good': '#3498db',
+      'move-inaccuracy': '#f39c12',
+      'move-miss': '#95a5a6',
+      'move-mistake': '#e67e22',
+      'move-blunder': '#e74c3c',
+    };
+
+    function classificationToColor(classClass, alpha) {
+      var base = classificationColors[classClass] || '#4a90d9';
+      if (alpha !== undefined) {
+        return hexToRgba(base, alpha);
+      }
+      return base;
+    }
+
+    function hexToRgba(hex, alpha) {
+      var r = parseInt(hex.slice(1, 3), 16);
+      var g = parseInt(hex.slice(3, 5), 16);
+      var b = parseInt(hex.slice(5, 7), 16);
+      return 'rgba(' + r + ', ' + g + ', ' + b + ', ' + alpha + ')';
+    }
+
+    // Determine colors for each segment based on the move's classification
     const segmentColors = [];
-    for (let i = 0; i < data.length - 1; i++) {
-      const diff = data[i + 1] - data[i];
-      // For White's moves (odd indices: 1,3,5...), negative diff = losing advantage
-      // For Black's moves (even indices: 2,4,6...), positive diff = losing advantage
-      // Index 0 is start, index 1 = White's 1st move, index 2 = Black's 1st move, etc.
-      const isWhiteMove = i % 2 === 0; // moves at odd labels are White's
-      const isLoss = isWhiteMove ? diff < -0.3 : diff > 0.3;
-      segmentColors.push(isLoss ? 'rgba(231, 76, 60, 0.6)' : 'rgba(46, 204, 113, 0.6)');
+    for (var i = 0; i < moveHistory.length; i++) {
+      var move = moveHistory[i];
+      var classClass = move.classification ? move.classification.classClass : '';
+      segmentColors.push(classificationToColor(classClass, 0.4));
     }
 
     // Set initial chart position to current move
@@ -662,20 +697,21 @@ $(document).ready(function () {
           label: 'Evaluation (pawns)',
           data: clampedData,
           borderColor: '#4a90d9',
-          backgroundColor: 'rgba(74, 144, 217, 0.1)',
+          backgroundColor: 'rgba(74, 144, 217, 0)',
           borderWidth: 2,
           pointRadius: 3,
-          pointBackgroundColor: clampedData.map(function(v, i) {
-            if (i === 0) return '#4a90d9';
-            const prev = clampedData[i - 1];
-            const diff = v - prev;
-            const isWhiteMove = (i - 1) % 2 === 0;
-            const isLoss = isWhiteMove ? diff < -0.3 : diff > 0.3;
-            return isLoss ? '#e74c3c' : '#2ecc71';
-          }),
+          pointBackgroundColor: (function() {
+            var colors = ['#4a90d9']; // start position
+            for (var i = 0; i < moveHistory.length; i++) {
+              var move = moveHistory[i];
+              var classClass = move.classification ? move.classification.classClass : '';
+              colors.push(classificationToColor(classClass));
+            }
+            return colors;
+          })(),
           pointBorderColor: '#fff',
           pointBorderWidth: 1,
-          fill: true,
+          fill: false,
           tension: 0.3,
           spanGaps: false,
         }]
@@ -690,7 +726,16 @@ $(document).ready(function () {
               label: function(context) {
                 const val = context.parsed.y;
                 const sign = val > 0 ? '+' : '';
-                return 'Evaluation: ' + sign + val.toFixed(2);
+                var label = 'Evaluation: ' + sign + val.toFixed(2);
+                // Append classification if available
+                var dataIndex = context.dataIndex;
+                if (dataIndex > 0) {
+                  var move = moveHistory[dataIndex - 1];
+                  if (move && move.classification) {
+                    label += ' (' + move.classification.classification + ')';
+                  }
+                }
+                return label;
               }
             }
           }
@@ -755,6 +800,44 @@ $(document).ready(function () {
           }
         }
       }, {
+        id: 'segmentFill',
+        beforeDraw: function(chart) {
+          var ctx = chart.ctx;
+          var chartArea = chart.chartArea;
+          var yScale = chart.scales.y;
+          var meta = chart.getDatasetMeta(0);
+          if (!meta || !meta.data || meta.data.length < 2) return;
+
+          ctx.save();
+          // Draw filled segments between each pair of consecutive points
+          for (var i = 0; i < moveHistory.length; i++) {
+            var move = moveHistory[i];
+            var classClass = move.classification ? move.classification.classClass : '';
+            var color = classificationToColor(classClass, 0.15);
+
+            var p0 = meta.data[i];
+            var p1 = meta.data[i + 1];
+            if (!p0 || !p1) continue;
+
+            var x0 = p0.x;
+            var y0 = p0.y;
+            var x1 = p1.x;
+            var y1 = p1.y;
+            var zeroY = yScale.getPixelForValue(0);
+
+            // Draw a filled polygon from data points down to the zero line
+            ctx.beginPath();
+            ctx.moveTo(x0, y0);
+            ctx.lineTo(x1, y1);
+            ctx.lineTo(x1, zeroY);
+            ctx.lineTo(x0, zeroY);
+            ctx.closePath();
+            ctx.fillStyle = color;
+            ctx.fill();
+          }
+          ctx.restore();
+        }
+      }, {
         id: 'positionMarker',
         afterDraw: function(chart) {
           const chartArea = chart.chartArea;
@@ -812,7 +895,90 @@ $(document).ready(function () {
     goToMove(currentMoveIndex);
   }
 
+  // Build the move summary table
+  function buildMoveSummary() {
+    const summaryCounts = {};
+    const classificationData = [
+      { name: 'Brilliant', symbol: '💎' },
+      { name: 'Great', symbol: '❗' },
+      { name: 'Best', symbol: '⭐' },
+      { name: 'Excellent', symbol: '🟢' },
+      { name: 'Good', symbol: '🔵' },
+      { name: 'Inaccuracy', symbol: '🟡' },
+      { name: 'Miss', symbol: '❓' },
+      { name: 'Mistake', symbol: '🟠' },
+      { name: 'Blunder', symbol: '🔴' }
+    ];
+
+    // Initialize counts to 0 for white and black for each category
+    classificationData.forEach(function(item) {
+      summaryCounts[item.name] = { white: 0, black: 0 };
+    });
+
+    // Populate counts from move history by color
+    moveHistory.forEach(function(move) {
+      if (move.classification && move.classification.classification) {
+        const className = move.classification.classification;
+        if (summaryCounts[className]) {
+          if (move.color === 'w') {
+            summaryCounts[className].white++;
+          } else if (move.color === 'b') {
+            summaryCounts[className].black++;
+          }
+        }
+      }
+    });
+
+    // Build HTML for the move summary table
+    let summaryHtml = '<table class="summary-table"><thead><tr><th>Move</th><th>White</th><th>Symbol</th><th>Black</th></tr></thead><tbody>';
+    let totalWhite = 0;
+    let totalBlack = 0;
+
+    classificationData.forEach(function(item) {
+      const counts = summaryCounts[item.name];
+      const w = counts.white;
+      const b = counts.black;
+      if (w > 0 || b > 0) {
+        summaryHtml += '<tr class="summary-' + item.name.toLowerCase() + '">';
+        summaryHtml += '<td>' + item.symbol + ' ' + item.name + '</td>';
+        summaryHtml += '<td>' + (w > 0 ? w : '') + '</td>';
+        summaryHtml += '<td>' + item.symbol + '</td>';
+        summaryHtml += '<td>' + (b > 0 ? b : '') + '</td>';
+        summaryHtml += '</tr>';
+        totalWhite += w;
+        totalBlack += b;
+      }
+    });
+
+    // Add total row
+    summaryHtml += '<tr class="summary-total"><td><strong>Total</strong></td><td><strong>' + totalWhite + '</strong></td><td></td><td><strong>' + totalBlack + '</strong></td></tr>';
+    summaryHtml += '</tbody></table>';
+
+    $('#moveSummaryTable').html(summaryHtml);
+  }
+
+  function finishFullAnalysis() {
+    isAnalyzingGame = false;
+    $('#analyzeGameBtn').text('Analyze Game');
+    $('#analysisProgress').addClass('hidden');
+
+    classifyAllMoves(); // Ensure moves are classified with all data
+
+    // Re-render move list to show analysis badges
+    displayMoveList({ header: {}, moves: moveHistory });
+
+    // Render the eval chart
+    renderEvalChart();
+
+    // Build and display the move summary
+    buildMoveSummary();
+
+    // Highlight and show eval for the current active move
+    goToMove(currentMoveIndex);
+  }
+
   function classifyAllMoves() {
+    // ... (rest of classifyAllMoves function remains the same)
     moveHistory.forEach(function(move, i) {
       let prevScore = 0;
       let prevScoreType = 'cp';

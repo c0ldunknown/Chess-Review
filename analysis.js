@@ -146,32 +146,41 @@ class ChessAnalysis {
   }
 
   /**
-   * Classifies a move based on centipawn drop
+   * Classifies a move based on centipawn drop — similar to Chess.com/lichess categories
    * @param {number} prevScore - Score before move (from White's perspective, in cp)
    * @param {number} postScore - Score after move (from White's perspective, in cp)
    * @param {string} color - Side that made the move ('w' or 'b')
    * @param {boolean} isBestMove - Whether the move played matches Stockfish's top recommended move
    */
   classifyMove(prevScore, postScore, color, isBestMove) {
+    // Convert scores to the player's perspective
+    // playerPrevScore > 0 = good for the player, < 0 = bad
+    const playerPrevScore = color === 'w' ? prevScore : -prevScore;
+    const playerPostScore = color === 'w' ? postScore : -postScore;
+    const diff = postScore - prevScore;
+    const loss = color === 'w' ? -diff : diff;
+
     if (isBestMove) {
+      // Brilliant: best move that turns a losing position around
+      // (player was at least 1.5 pawns down and recovered to within 0.5 pawns of equal)
+      if (playerPrevScore <= -150 && playerPostScore >= -50) {
+        return { classification: 'Brilliant', symbol: '💎', classClass: 'move-brilliant', desc: 'A brilliant move that turns the game around' };
+      }
       return { classification: 'Best', symbol: '⭐', classClass: 'move-best', desc: 'The best move' };
     }
 
-    // Calculate change from White's perspective
-    const diff = postScore - prevScore;
-    
-    // We want the loss of advantage for the active player
-    // For White: negative diff is a loss of advantage (e.g. +1.5 -> +0.5 is -1.0)
-    // For Black: positive diff is a loss of advantage (e.g. -1.5 -> -0.5 is +1.0)
-    const loss = color === 'w' ? -diff : diff;
-
-    if (loss <= 0.1) {
+    // Non-best moves: classify by centipawn loss from player's perspective
+    if (loss <= 5) {
+      return { classification: 'Great', symbol: '❗', classClass: 'move-great', desc: 'A great move, almost the best' };
+    } else if (loss <= 10) {
       return { classification: 'Excellent', symbol: '🟢', classClass: 'move-excellent', desc: 'An excellent move' };
-    } else if (loss <= 0.3) {
+    } else if (loss <= 30) {
       return { classification: 'Good', symbol: '🔵', classClass: 'move-good', desc: 'A good move' };
-    } else if (loss <= 0.9) {
+    } else if (loss <= 70) {
       return { classification: 'Inaccuracy', symbol: '🟡', classClass: 'move-inaccuracy', desc: 'An inaccuracy' };
-    } else if (loss <= 2.5) {
+    } else if (loss <= 150) {
+      return { classification: 'Miss', symbol: '❓', classClass: 'move-miss', desc: 'Missed a good opportunity' };
+    } else if (loss <= 250) {
       return { classification: 'Mistake', symbol: '🟠', classClass: 'move-mistake', desc: 'A mistake' };
     } else {
       return { classification: 'Blunder', symbol: '🔴', classClass: 'move-blunder', desc: 'A blunder!' };
