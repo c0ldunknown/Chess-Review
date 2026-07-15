@@ -246,6 +246,7 @@
 
     R.updateNavState();
     R.updateChartPosition();
+    R.updateExplanationPanel();
   };
 
   /** Flip the board. */

@@ -396,6 +396,39 @@
   margin-top: 8px;
 }
 
+/* Explanation Panel */
+.explanation-panel {
+  width: 100%;
+  margin-top: 12px;
+  background: #1b2644;
+  border: 1px solid #2d3d66;
+  border-radius: 8px;
+  padding: 12px 14px;
+  transition: opacity 0.2s;
+}
+
+.explanation-panel.hidden {
+  display: none;
+}
+
+.explanation-panel-header {
+  margin-bottom: 6px;
+}
+
+.explanation-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #a0a0c0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.explanation-text {
+  font-size: 0.92rem;
+  line-height: 1.5;
+  color: #e0e0e0;
+}
+
 /* Loading Spinner */
 .loading-spinner {
   display: inline-block;

@@ -374,6 +374,74 @@
     );
   }
 
+  // --- Explanation Panel ---
+
+  function updateExplanationPanel() {
+    var panel = $('#explanationPanel');
+    var textEl = $('#explanationText');
+
+    // Hide panel if no move loaded or not an error move
+    if (R.currentMoveIndex < 0 || R.currentMoveIndex >= R.moveHistory.length) {
+      panel.addClass('hidden');
+      return;
+    }
+
+    var move = R.moveHistory[R.currentMoveIndex];
+    if (!move.classification) {
+      panel.addClass('hidden');
+      return;
+    }
+
+    var classification = move.classification.classification;
+    if (classification !== 'blunder' && classification !== 'mistake') {
+      panel.addClass('hidden');
+      return;
+    }
+
+    // Don't explain mistakes if flag is off
+    if (classification === 'mistake' && !R.explainMistakes) {
+      panel.addClass('hidden');
+      return;
+    }
+
+    // Check cache
+    var cacheKey = classification + ':' + move.uci;
+    if (R.explanationCache[cacheKey]) {
+      textEl.text(R.explanationCache[cacheKey]);
+      panel.removeClass('hidden');
+      return;
+    }
+
+    // Show loading state
+    textEl.text('Generating explanation...');
+    panel.removeClass('hidden');
+
+    // Fetch from proxy
+    $.ajax({
+      url: 'http://localhost:3001/api/explain',
+      method: 'POST',
+      contentType: 'application/json',
+      data: JSON.stringify({
+        move: move.san,
+        bestMove: formatUciMove(move.bestMove) || '',
+        classification: classification,
+        fen: move.fen
+      }),
+      success: function (response) {
+        if (response.explanation) {
+          R.explanationCache[cacheKey] = response.explanation;
+          textEl.text(response.explanation);
+        } else {
+          panel.addClass('hidden');
+        }
+      },
+      error: function () {
+        textEl.text('Could not load explanation. Make sure the proxy server is running on port 3001.');
+      }
+    });
+  }
+  R.updateExplanationPanel = updateExplanationPanel;
+
   function finishFullAnalysis() {
     R.isAnalyzingGame = false;
     $('#analyzeGameBtn').text('Analyze Game');

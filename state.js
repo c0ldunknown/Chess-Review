@@ -12,4 +12,6 @@ window.ChessReview = {
   startPositionEval: null,
   evalChartInstance: null,
   currentChartIndex: 0,
+  explanationCache: {},
+  explainMistakes: true,
 };
