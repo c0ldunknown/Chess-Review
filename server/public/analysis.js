@@ -21,12 +21,13 @@ class ChessAnalysis {
       // The WASM loader is async, so we need to wait for it to signal ready
       const workerScript = [
         'importScripts("' + this.cdnUrl + '");',
-        'Stockfish().then(function(sf) {',
+        'var sf = Stockfish();',
+        'sf.ready.then(function() {',
         '  sf.addMessageListener(function(msg) { self.postMessage(msg); });',
         '  self.onmessage = function(e) { sf.postMessage(e.data); };',
         '  self.postMessage("wasm_ready");',
         '}).catch(function(err) {',
-        '  self.postMessage("wasm_error:" + err.message);',
+        '  self.postMessage("wasm_error:" + (err && err.message ? err.message : err));',
         '});'
       ].join('\n');
 
@@ -35,15 +36,21 @@ class ChessAnalysis {
 
       this.worker = new Worker(workerUrl);
 
-      // Wait for the Worker to signal WASM is ready
+      // Wait for the Worker to signal WASM is ready, with timeout
       await new Promise((resolve, reject) => {
+        var timeout = setTimeout(function () {
+          reject(new Error('Stockfish WASM load timed out (30s)'));
+        }, 30000);
+
         this.worker.onmessage = (e) => {
           const msg = e.data;
           if (msg === 'wasm_ready') {
+            clearTimeout(timeout);
             // Now set up the normal message handler and resolve
             this.worker.onmessage = (e2) => this.handleWorkerMessage(e2.data);
             resolve();
           } else if (typeof msg === 'string' && msg.startsWith('wasm_error:')) {
+            clearTimeout(timeout);
             reject(new Error(msg.slice(11)));
           }
         };
