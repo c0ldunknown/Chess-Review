@@ -9,7 +9,7 @@ class ChessAnalysis {
     this.targetDepth = 15;
     this.searchMode = 'time';     // 'depth' or 'time'
     this.searchTime = 8000;       // ms for movetime mode
-    this.cdnUrl = 'https://cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.2/stockfish.js';
+    this.cdnBase = 'https://unpkg.com/stockfish@18.0.8/bin/';
     this._requestId = 0;
   }
 
@@ -17,13 +17,19 @@ class ChessAnalysis {
     if (this.isReady) return;
 
     try {
-      // Fetch Stockfish from CDN and create blob URL to bypass CORS for Worker
-      const response = await fetch(this.cdnUrl);
-      if (!response.ok) throw new Error('Failed to fetch Stockfish from CDN');
-      const code = await response.text();
-      const blob = new Blob([code], { type: 'application/javascript' });
+      // Create a Worker that loads Stockfish 18 WASM from CDN
+      // and sets up UCI communication via postMessage
+      const workerScript = [
+        'var baseUrl = "' + this.cdnBase + '";',
+        '// Load the Stockfish18 WASM module via importScripts',
+        'importScripts(baseUrl + "stockfish-18-lite-single.js");',
+        '// The module auto-initializes in the Worker context, setting up',
+        '// onmessage for UCI commands and postMessage for engine output.'
+      ].join('\n');
+
+      const blob = new Blob([workerScript], { type: 'application/javascript' });
       const workerUrl = URL.createObjectURL(blob);
-      
+
       this.worker = new Worker(workerUrl);
       this.worker.onmessage = (e) => this.handleWorkerMessage(e.data);
 
