@@ -9,7 +9,7 @@ class ChessAnalysis {
     this.targetDepth = 15;
     this.searchMode = 'time';     // 'depth' or 'time'
     this.searchTime = 8000;       // ms for movetime mode
-    this.cdnBase = 'https://unpkg.com/stockfish@18.0.8/bin/';
+    this.cdnUrl = 'https://cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.2/stockfish.js';
     this._requestId = 0;
   }
 
@@ -17,11 +17,14 @@ class ChessAnalysis {
     if (this.isReady) return;
 
     try {
-      // Load the Stockfish 18 WASM Worker from our server.
-      // The worker loads stockfish-18-lite-single via importScripts,
-      // which auto-initializes and derives the .wasm URL from its own filename.
-      // We serve both stockfish.js (worker) and stockfish.wasm (binary) from Express.
-      this.worker = new Worker('/stockfish.js');
+      // Fetch Stockfish from CDN and create blob URL to bypass CORS for Worker
+      const response = await fetch(this.cdnUrl);
+      if (!response.ok) throw new Error('Failed to fetch Stockfish from CDN');
+      const code = await response.text();
+      const blob = new Blob([code], { type: 'application/javascript' });
+      const workerUrl = URL.createObjectURL(blob);
+      
+      this.worker = new Worker(workerUrl);
       this.worker.onmessage = (e) => this.handleWorkerMessage(e.data);
 
       // Initialize UCI
