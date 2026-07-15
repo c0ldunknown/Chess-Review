@@ -1,0 +1,64 @@
+# e01s01 — Proxy server + explanation panel end-to-end
+story_id: e01s01
+title: "Proxy server + explanation panel end-to-end"
+description: >
+  The thinnest vertical slice that delivers user value: a user loads a PGN,
+  runs analysis, navigates to a blunder, and sees a natural-language explanation
+  next to the board. Proves the full pipeline: proxy -> OpenRouter -> panel.
+bcps: 5
+status: failing
+tasks:
+  - id: e01s01t01
+    description: "Create Express server skeleton with POST /api/explain endpoint"
+    verify: "cd server && node -e \"require('./index.js')\" & sleep 1 && curl -s -X POST http://localhost:3001/api/explain -H 'Content-Type: application/json' -d '{\"move\":\"Nxf7\",\"classification\":\"blunder\"}' | grep -q 'explanation' && echo 'ENDPOINT_OK'"
+    risk: P0
+    status: failing
+    allure:
+      severity: critical
+      categories:
+        - "Infrastructure"
+  - id: e01s01t02
+    description: "Integrate OpenRouter API call with DeepSeek V4 Flash model"
+    verify: "grep -q 'openrouter' server/index.js && grep -q 'MODEL_NAME' server/index.js && echo 'OPENROUTER_INTEGRATED'"
+    risk: P0
+    status: failing
+    allure:
+      severity: critical
+      categories:
+        - "Integration"
+  - id: e01s01t03
+    description: "Add explanation panel div next to the chess board in index.html"
+    verify: "grep -q 'explanation-panel' index.html && echo 'PANEL_EXISTS'"
+    risk: P1
+    status: failing
+    allure:
+      severity: high
+      categories:
+        - "UI"
+  - id: e01s01t04
+    description: "Wire frontend to call proxy when navigating to a blunder/mistake, cache response"
+    verify: "grep -q '/api/explain' script.js && grep -q 'explanationCache' script.js && echo 'PROXY_CALL_WIRED'"
+    risk: P1
+    status: failing
+    allure:
+      severity: high
+      categories:
+        - "Integration"
+  - id: e01s01t05
+    description: "Display explanation text in panel, clear on non-error moves"
+    verify: "grep -q 'explanation-panel' script.js && grep -q 'updateExplanationPanel' board.js && echo 'PANEL_DISPLAY_WIRED'"
+    risk: P1
+    status: failing
+    allure:
+      severity: high
+      categories:
+        - "UI"
+  - id: e01s01t06
+    description: "Style the explanation panel to match the dark theme"
+    verify: "grep -q 'explanation-panel' components.css && echo 'PANEL_STYLED'"
+    risk: P2
+    status: failing
+    allure:
+      severity: normal
+      categories:
+        - "UI"

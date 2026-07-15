@@ -1,0 +1,21 @@
+# specs/release-plan.yaml
+target_version: "0.2.0"
+name: "Natural language blunder analysis"
+epics:
+  - epic_id: e01
+    title: "Natural language blunder analysis"
+    wsif: 10
+    status: planned
+    stories:
+      - story_id: e01s01
+        title: "Proxy server + explanation panel end-to-end"
+        bcps: 5
+        status: planned
+      - story_id: e01s02
+        title: "Jump-to-error navigation"
+        bcps: 3
+        status: planned
+      - story_id: e01s03
+        title: "Config toggle for mistakes + model swapping"
+        bcps: 2
+        status: planned

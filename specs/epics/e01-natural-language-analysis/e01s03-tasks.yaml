@@ -1,0 +1,46 @@
+# e01s03 — Config toggle for mistakes + model swapping
+story_id: e01s03
+title: "Config toggle for mistakes + model swapping"
+description: >
+  Add a config flag to disable mistake explanations (show only blunders), and
+  support easy model swapping via environment variable so the user can
+  experiment with different OpenRouter models.
+bcps: 2
+status: failing
+tasks:
+  - id: e01s03t01
+    description: "Add MODEL_NAME and EXPLAIN_MISTAKES to server/.env"
+    verify: "grep -q 'MODEL_NAME' server/.env && grep -q 'EXPLAIN_MISTAKES' server/.env && echo 'ENV_CONFIGURED'"
+    risk: P2
+    status: failing
+    allure:
+      severity: normal
+      categories:
+        - "Infrastructure"
+  - id: e01s03t02
+    description: "Read MODEL_NAME from env in Express server for OpenRouter call"
+    verify: "grep -q 'process.env.MODEL_NAME' server/index.js && echo 'MODEL_ENV_READ'"
+    risk: P2
+    status: failing
+    allure:
+      severity: normal
+      categories:
+        - "Infrastructure"
+  - id: e01s03t03
+    description: "Read EXPLAIN_MISTAKES flag from env and respect it in API response"
+    verify: "grep -q 'EXPLAIN_MISTAKES' server/index.js && echo 'MISTAKES_FLAG_READ'"
+    risk: P2
+    status: failing
+    allure:
+      severity: normal
+      categories:
+        - "Infrastructure"
+  - id: e01s03t04
+    description: "Create server/.env.example and add server/.env to .gitignore"
+    verify: "test -f server/.env.example && grep -q 'server/.env' .gitignore && echo 'DOCS_DONE'"
+    risk: P3
+    status: failing
+    allure:
+      severity: minor
+      categories:
+        - "Documentation"

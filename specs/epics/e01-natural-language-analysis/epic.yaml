@@ -1,0 +1,26 @@
+# specs/epics/e01-natural-language-analysis/epic.yaml
+epic_id: e01
+title: "Natural language blunder analysis"
+description: >
+  Add a text panel next to the chess board that shows concise, matter-of-fact
+  natural language explanations for blunders and mistakes. A tiny Node.js
+  Express proxy holds the OpenRouter API key and calls DeepSeek V4 Flash.
+  Explanations are cached per-move. Mistake explanations are toggleable.
+bcps: 10
+stories:
+  - story_id: e01s01
+    title: "Proxy server + explanation panel end-to-end"
+    bcps: 5
+    status: planned
+  - story_id: e01s02
+    title: "Jump-to-error navigation"
+    bcps: 3
+    status: planned
+  - story_id: e01s03
+    title: "Config toggle for mistakes + model swapping"
+    bcps: 2
+    status: planned
+dependencies: []
+references:
+  - specs/product/SCOPE_LATEST.yaml
+  - specs/planning-context.yaml

@@ -1,0 +1,66 @@
+# specs/product/SCOPE_LATEST.yaml
+# Scope for: Natural language blunder analysis
+
+core_value: "When reviewing a chess game, every blunder and mistake gets a concise, natural-language explanation of what went wrong and what to play instead — powered by a cheap LLM API through a local proxy."
+
+summary: |
+  The app already analyzes games with Stockfish and classifies every move into
+  10 categories (brilliant through blunder) with colored badges. What's missing
+  is the "why." This scope adds a text panel next to the board that shows a
+  1-2 sentence explanation for the current move when it's a blunder or mistake.
+
+  A tiny Node.js Express backend proxy holds the OpenRouter API key and calls
+  DeepSeek V4 Flash for generation. The frontend caches explanations per move
+  so re-navigation doesn't re-fetch. Navigation buttons let the user jump
+  between only the error moves (blunders/mistakes).
+
+  Mistake explanations are toggleable via a single config flag, so the user
+  can experiment and decide if they're too noisy.
+
+in_scope:
+  - "Express backend proxy: POST /api/explain with { fen, move, bestMove, classification } → returns explanation text"
+  - "OpenRouter integration with DeepSeek V4 Flash as default model"
+  - "Model-swappable architecture via env/config — change model string without code changes"
+  - "Explanation panel UI: positioned next to the board, shows text for current move"
+  - "Panel content updates reactively when navigating moves"
+  - "Explanation caching: store per-move explanations so re-navigation is instant"
+  - "Jump-to-error navigation: prev/next buttons that skip to blunders/mistakes only"
+  - "Mistake toggle: single config flag to enable/disable generating explanations for mistakes (vs only blunders)"
+  - "Config/env file (.env or config.js) for API key, model, endpoint URL"
+
+out_of_scope:
+  - "Explanations for non-error moves (good, excellent, brilliant, etc.)"
+    reason: "Deferred — not needed for MVP; adds cost with unclear value"
+  - "Multi-language support"
+    reason: "Out of scope entirely — no demand; would add prompt complexity"
+  - "Voice/audio explanations"
+    reason: "Not valuable for a text-based review tool"
+  - "Saving/exporting explanations"
+    reason: "Deferred — no user request yet; adds persistence complexity"
+  - "Hosted deployment of the proxy"
+    reason: "Deferred to later exploration; local-only for now"
+  - "Rate limiting or auth on the proxy"
+    reason: "Local-only; not needed until hosting"
+  - "Explanations for the opponent's errors specifically separated from player's"
+    reason: "Already covered — any blunder/mistake gets an explanation regardless of side; no need for side-filtering"
+  - "Custom prompt editing UI"
+    reason: "Prompt is hardcoded; user can edit the prompt template in code if desired"
+
+constraints:
+  - "Frontend is vanilla JS with no build step — any UI additions must be inline or script-src"
+  - "Backend proxy must be Node.js Express (same language as frontend)"
+  - "API key stored server-side only (not exposed to browser)"
+  - "DeepSeek V4 Flash via OpenRouter is the initial model; architecture must support swapping"
+  - "Explanations must be concise (1-2 sentences, matter-of-fact tone)"
+  - "All API calls go through the proxy — frontend never calls OpenRouter directly"
+
+success_criteria:
+  - "User loads a PGN, runs Stockfish analysis, navigates to a blunder, and sees a sensible explanation in the panel"
+  - "Navigating to a non-error move shows no explanation (panel is empty or hidden)"
+  - "Jump-to-blunder buttons skip non-error moves correctly"
+  - "Setting mistakes off via config flag causes only blunders to generate explanations"
+  - "Re-visiting a move shows cached explanation instantly (no re-fetch)"
+  - "Swapping the model string in config switches to a different OpenRouter model without code changes"
+
+references:
+  - specs/planning-context.yaml

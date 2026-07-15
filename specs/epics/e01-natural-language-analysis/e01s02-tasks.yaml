@@ -1,0 +1,46 @@
+# e01s02 — Jump-to-error navigation
+story_id: e01s02
+title: "Jump-to-error navigation"
+description: >
+  Add prev/next buttons that skip between blunders and mistakes in the move
+  history, so the user can quickly review all errors without clicking through
+  every move manually.
+bcps: 3
+status: failing
+tasks:
+  - id: e01s02t01
+    description: "Add prev/next error buttons to the game controls row in index.html"
+    verify: "grep -q 'prevErrorBtn\|nextErrorBtn' index.html && echo 'BUTTONS_EXIST'"
+    risk: P1
+    status: failing
+    allure:
+      severity: high
+      categories:
+        - "UI"
+  - id: e01s02t02
+    description: "Implement goToPrevError and goToNextError functions in board.js"
+    verify: "grep -q 'goToPrevError\|goToNextError' board.js && echo 'NAV_FUNCTIONS_EXIST'"
+    risk: P1
+    status: failing
+    allure:
+      severity: high
+      categories:
+        - "Core"
+  - id: e01s02t03
+    description: "Wire button clicks and keyboard shortcuts (Shift+arrow) in script.js"
+    verify: "grep -q 'prevErrorBtn' script.js && grep -q 'shiftKey' script.js && echo 'WIRED'"
+    risk: P1
+    status: failing
+    allure:
+      severity: high
+      categories:
+        - "UI"
+  - id: e01s02t04
+    description: "Style error-skip buttons and disable when no errors exist"
+    verify: "grep -q 'ctrl-btn-error' components.css && grep -q 'prevErrorBtn\|nextErrorBtn' board.js && echo 'STYLED_AND_DISABLED'"
+    risk: P2
+    status: failing
+    allure:
+      severity: normal
+      categories:
+        - "UI"

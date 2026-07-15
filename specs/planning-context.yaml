@@ -1,0 +1,25 @@
+# specs/planning-context.yaml — written by elaborate-spec
+feature_name: "natural-language-blunder-analysis"
+problem_statement: "When reviewing a chess game, blunders and mistakes get a classification badge but no explanation of why they're bad or what the player should have played instead."
+constraints:
+  - "Must remain a static vanilla JS frontend (no build step)"
+  - "LLM API calls go through a tiny Node.js Express backend proxy (holds OpenRouter API key)"
+  - "DeepSeek V4 Flash via OpenRouter for cost-efficient generation"
+  - "Must support easy model swapping for future experimentation"
+  - "Explanations must be concise (1-2 sentences, matter-of-fact tone)"
+  - "Mistake explanations must be toggleable via a single config flag"
+out_of_scope:
+  - "Explanations for non-error moves (good, excellent, brilliant, etc.)"
+  - "Multi-language support"
+  - "Voice/audio explanations"
+  - "Saving or exporting explanations"
+  - "Hosted deployment (local only for now)"
+key_decisions:
+  - decision: "DeepSeek V4 Flash via OpenRouter as the LLM provider"
+    rationale: "Cost-efficient and already in use by the user; OpenRouter makes model swapping trivial"
+  - decision: "Node.js Express backend proxy"
+    rationale: "Same language as frontend; lightweight; easy to host later on Railway/Fly.io"
+  - decision: "Explanations generated per-move on demand, cached after first fetch"
+    rationale: "Avoids regenerating explanations on every navigation; only blunders/mistakes trigger a call"
+  - decision: "Mistake explanations toggleable via config flag in the backend or frontend"
+    rationale: "User wants mistakes optionally shown; one-flag disable keeps it simple"
