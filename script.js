@@ -376,76 +376,121 @@
 
   // --- Explanation Panel ---
 
+  /** Show the current move's explanation from cache (or empty text). */
   function updateExplanationPanel() {
-    var panel = $('#explanationPanel');
     var textEl = $('#explanationText');
 
-    // Hide panel if no move loaded or not an error move
     if (R.currentMoveIndex < 0 || R.currentMoveIndex >= R.moveHistory.length) {
-      panel.addClass('hidden');
+      textEl.text('No game loaded yet.');
       return;
     }
 
     var move = R.moveHistory[R.currentMoveIndex];
     if (!move.classification) {
-      panel.addClass('hidden');
+      textEl.text('');
       return;
     }
 
     var classification = move.classification.classification;
-    if (classification !== 'blunder' && classification !== 'mistake') {
-      panel.addClass('hidden');
+    if (classification !== 'Blunder' && classification !== 'Mistake') {
+      textEl.text('');
       return;
     }
 
-    // Don't explain mistakes if flag is off
-    if (classification === 'mistake' && !R.explainMistakes) {
-      panel.addClass('hidden');
+    if (classification === 'Mistake' && !R.explainMistakes) {
+      textEl.text('');
       return;
     }
 
-    // Check cache
-    var cacheKey = classification + ':' + move.uci;
+    // Respect filter
+    if (R.errorFilter !== 'both' && move.color !== R.errorFilter) {
+      textEl.text('');
+      return;
+    }
+
+    var cacheKey = classification.toLowerCase() + ':' + move.uci;
     if (R.explanationCache[cacheKey]) {
       textEl.text(R.explanationCache[cacheKey]);
-      panel.removeClass('hidden');
+    } else {
+      textEl.text('Generating explanation...');
+    }
+  }
+  R.updateExplanationPanel = updateExplanationPanel;
+
+  /** Preload explanations for all blunders/mistakes regardless of filter. */
+  function preloadExplanations() {
+    var errorMoves = [];
+    R.moveHistory.forEach(function (move, i) {
+      if (!move.classification) return;
+      var c = move.classification.classification;
+      if (c !== 'Blunder' && (c !== 'Mistake' || !R.explainMistakes)) return;
+      errorMoves.push({ index: i, move: move, classification: c });
+    });
+
+    if (errorMoves.length === 0) {
+      $('#explanationText').text('No blunders or mistakes to analyze.');
       return;
     }
 
-    // Show loading state
-    textEl.text('Generating explanation...');
-    panel.removeClass('hidden');
+    $('#analysisProgress').removeClass('hidden');
+    var done = 0;
 
-    // Fetch from proxy
-    $.ajax({
-      url: 'http://localhost:3001/api/explain',
-      method: 'POST',
-      contentType: 'application/json',
-      data: JSON.stringify({
-        move: move.san,
-        bestMove: formatUciMove(move.bestMove) || '',
-        classification: classification,
-        fen: move.fen
-      }),
-      success: function (response) {
-        if (response.explanation) {
-          R.explanationCache[cacheKey] = response.explanation;
-          textEl.text(response.explanation);
-        } else {
-          panel.addClass('hidden');
-        }
-      },
-      error: function () {
-        textEl.text('Could not load explanation. Make sure the proxy server is running on port 3001.');
+    function fetchNext() {
+      if (done >= errorMoves.length) {
+        $('#analysisProgress').addClass('hidden');
+        $('#analyzeGameBtn').text('Analyze Game');
+        R.updateExplanationPanel();
+        return;
       }
-    });
+
+      var item = errorMoves[done];
+      var cacheKey = item.classification.toLowerCase() + ':' + item.move.uci;
+
+      // Skip if already cached
+      if (R.explanationCache[cacheKey]) {
+        done++;
+        fetchNext();
+        return;
+      }
+
+      var pct = Math.round((done / errorMoves.length) * 100);
+      $('#progressFill').css('width', pct + '%');
+      $('#progressText').text('Generating explanations ' + (done + 1) + ' / ' + errorMoves.length + '...');
+
+      $.ajax({
+        url: 'http://localhost:3001/api/explain',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({
+          move: item.move.san,
+          bestMove: formatUciMove(item.move.bestMove) || '',
+          classification: item.classification.toLowerCase(),
+          fen: item.move.fen
+        }),
+        success: function (response) {
+          if (response.explanation) {
+            R.explanationCache[cacheKey] = response.explanation;
+          }
+        },
+        error: function () {
+          R.explanationCache[cacheKey] = 'Could not load explanation.';
+        },
+        complete: function () {
+          done++;
+          fetchNext();
+        }
+      });
+    }
+
+    fetchNext();
   }
-  R.updateExplanationPanel = updateExplanationPanel;
 
   function finishFullAnalysis() {
     R.isAnalyzingGame = false;
     $('#analyzeGameBtn').text('Analyze Game');
-    $('#analysisProgress').addClass('hidden');
+    $('#analysisProgress').removeClass('hidden');
+    $('#progressFill').css('width', '0%');
+    $('#progressText').text('Generating explanations...');
 
     classifyAllMoves();
 
@@ -453,6 +498,8 @@
     R.renderEvalChart();
     buildMoveSummary();
     R.goToMove(R.currentMoveIndex);
+
+    preloadExplanations();
   }
 
   // --- Game Loading ---
@@ -599,6 +646,13 @@
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
       $loadBtn.click();
     }
+  });
+
+  // Error filter
+  $('#errorFilter').on('change', function () {
+    R.errorFilter = $(this).val();
+    R.updateNavState();
+    R.updateExplanationPanel();
   });
 
   // Analyze

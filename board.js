@@ -85,7 +85,10 @@
     container.appendChild(badge);
   };
 
-  /** Render a best-move arrow on the board. */
+  /** Render a best-move arrow on the board.
+   *  Shows the engine's best move from the PREVIOUS position (the position
+   *  the player was in when they made their choice).
+   */
   R.renderBestMoveArrow = function () {
     const svg = document.getElementById('arrowSvg');
     if (!svg) return;
@@ -95,8 +98,13 @@
 
     if (R.currentMoveIndex < 0 || R.currentMoveIndex >= R.moveHistory.length) return;
 
-    const move = R.moveHistory[R.currentMoveIndex];
-    const bestMove = move.bestMove;
+    // Get the best move from the PREVIOUS position's analysis
+    var bestMove;
+    if (R.currentMoveIndex === 0) {
+      bestMove = R.startPositionEval ? R.startPositionEval.bestMove : null;
+    } else {
+      bestMove = R.moveHistory[R.currentMoveIndex - 1].bestMove;
+    }
     if (!bestMove || bestMove.length < 4) return;
 
     const fromSquare = bestMove.substring(0, 2);
@@ -155,12 +163,10 @@
     $('#nextBtn').prop('disabled', current >= total - 1);
     $('#lastBtn').prop('disabled', current >= total - 1);
 
-    // Check if any errors exist
+    // Check if any errors exist (respecting the current filter)
     var hasErrors = false;
     for (var i = 0; i < R.moveHistory.length; i++) {
-      var m = R.moveHistory[i];
-      if (m.classification && (m.classification.classification === 'blunder' ||
-          (m.classification.classification === 'mistake' && R.explainMistakes))) {
+      if (isErrorMove(R.moveHistory[i])) {
         hasErrors = true;
         break;
       }
@@ -262,6 +268,15 @@
     R.updateExplanationPanel();
   };
 
+  /** Check if a move's classification matches the current error filter. */
+  function isErrorMove(move) {
+    if (!move || !move.classification) return false;
+    var c = move.classification.classification;
+    if (c !== 'Blunder' && (c !== 'Mistake' || !R.explainMistakes)) return false;
+    if (R.errorFilter === 'both') return true;
+    return move.color === R.errorFilter;
+  }
+
   /** Scan backward to find the nearest blunder/mistake. */
   R.goToPrevError = function () {
     if (!R.moveHistory || R.moveHistory.length === 0) return;
@@ -270,9 +285,7 @@
         R.goToMove(-1);
         return;
       }
-      var move = R.moveHistory[i];
-      if (move.classification && (move.classification.classification === 'blunder' ||
-          (move.classification.classification === 'mistake' && R.explainMistakes))) {
+      if (isErrorMove(R.moveHistory[i])) {
         R.goToMove(i);
         return;
       }
@@ -284,9 +297,7 @@
   R.goToNextError = function () {
     if (!R.moveHistory || R.moveHistory.length === 0) return;
     for (var i = R.currentMoveIndex + 1; i < R.moveHistory.length; i++) {
-      var move = R.moveHistory[i];
-      if (move.classification && (move.classification.classification === 'blunder' ||
-          (move.classification.classification === 'mistake' && R.explainMistakes))) {
+      if (isErrorMove(R.moveHistory[i])) {
         R.goToMove(i);
         return;
       }

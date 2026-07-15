@@ -14,4 +14,5 @@ window.ChessReview = {
   currentChartIndex: 0,
   explanationCache: {},
   explainMistakes: true,
+  errorFilter: 'both', // 'both' | 'w' | 'b'
 };

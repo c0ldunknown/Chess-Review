@@ -107,7 +107,7 @@ body {
 }
 
 .board-section {
-  flex-shrink: 0;
+  flex: 0 0 auto;
 }
 
 .board-wrapper {
