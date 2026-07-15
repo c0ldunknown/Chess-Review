@@ -1,84 +1,58 @@
 # specs/product/SCOPE_LATEST.yaml
-# Scope for: Render deployment + time-based Stockfish search
+# Scope for: WASM Stockfish upgrade
 
-core_value: "Chess Review becomes an online app friends can use without any local setup, and Stockfish analysis finishes each move in a consistent time instead of wildly variable waits."
+core_value: "Stockfish analysis finishes 3-5x faster by swapping the JavaScript-emulated engine for a native WebAssembly build."
 
 summary: |
-  The app currently requires both a local HTTP server (python3 -m http.server)
-  and the Express LLM proxy (node server/index.js) running simultaneously on
-  different ports. This scope deploys everything behind a single URL so the
-  user and their friends can open it in a browser and analyze games immediately.
+  The current Stockfish engine (`stockfish.js` v10.0.2 from cdnjs) is the original
+  Emscripten port that compiles Stockfish C++ to JavaScript. Running JS-emulated
+  C++ in a Web Worker is inherently slow — about 3-5x slower than native WASM.
 
-  On the engine side, Stockfish currently searches a fixed number of plies (depth
-  15) per position. Complex positions take 30+ seconds while simple ones finish
-  in under a second. A new time-based search mode lets the user choose a duration
-  (e.g., 8 seconds per move, matching Lichess's default) for consistent analysis
-  times. The existing depth mode is preserved via a toggle for testing.
+  This scope swaps the CDN URL for `stockfish.wasm` (v0.10.0 by Niklas Fiekas,
+  the same engine Lichess uses) served from jsdelivr. The WASM binary is loaded
+  by the browser's WebAssembly runtime, giving near-native performance.
 
-  The frontend is restructured so Express serves the static files from a public/
-  directory, and API URLs use relative paths (/api/explain) to work in both local
-  dev and production. A "Load debug game" affordance replaces the hardcoded PGN
-  in the textarea.
+  The Worker pattern stays the same — the only code change is in `analysis.js`
+  where the CDN URL and Worker initialization logic are updated to load the WASM
+  version. Time-based search (8s default) remains the default — WASM just reaches
+  much deeper in the same time budget.
 
 in_scope:
-  - "Move frontend static files (index.html, .js, .css) into server/public/"
-    reason: "Express can serve them in production and dev with one line"
-  - "Update Express server to serve static files from public/"
-    reason: "Single service, single URL in production"
-  - "Change frontend API URLs from http://localhost:3001/api/explain to /api/explain"
-    reason: "Relative URLs work both locally (via proxy) and on Render"
-  - "Add depth/time mode toggle to the analysis controls (radio or switch)"
-    reason: "User can switch between consistent time-based search and depth mode for testing"
-  - "Update the dropdown values dynamically based on mode"
-    reason: "Depth mode shows 10/12/15/18/20; Time mode shows 2s/5s/8s/15s/30s"
-  - "Implement go movetime N in the engine for time mode"
-    reason: "Stockfish movetime gives consistent per-position search time"
-  - "Set per-position timeout to movetime + 5s safety buffer"
-    reason: "Prevents hangs without cutting off legitimate searches"
-  - "Add a 'Load debug game' button or link that fills in the example PGN"
-    reason: "User wants placeholder by default but quick access to a test game"
-  - "Create render.yaml for Render deployment (web service, Node, start command)"
-    reason: "Render needs this to auto-deploy from GitHub"
-  - "Remove the hosted deployment item from out_of_scope (it's now in scope)"
-    reason: "This scope delivers exactly that"
+  - "Replace stockfish.js CDN URL with stockfish.wasm CDN URL in analysis.js"
+    reason: "The core change — one URL swap gives 3-5x speedup"
+  - "Update Worker initialization to match stockfish.wasm's loading pattern"
+    reason: "WASM builds use a different init pattern than the plain JS blob"
+  - "Preserve existing search mode toggle (Depth | Time), dropdown values, and timeout logic"
+    reason: "No behavioral changes — just a faster engine underneath"
+  - "Handle WASM loading errors gracefully (show 'Analysis unavailable' message)"
+    reason: "WASM might fail in older browsers; must degrade gracefully per CONVENTIONS.md"
+  - "Verify analysis completes earlier (deeper search in same time budget)"
+    reason: "Observable proof the upgrade works"
 
 out_of_scope:
-  - "Stockfish WASM migration"
-    reason: "Deferred — future performance improvement; JS stockfish is sufficient for now"
-  - "Supabase / game storage integration"
-    reason: "Deferred — no storage needed yet; scope stays focused on deployment + search"
-  - "Custom domain"
-    reason: "Not needed — chess-review.onrender.com is fine for friends"
-  - "CI/CD beyond Render auto-deploy from git"
-    reason: "Render handles this; no additional pipeline needed"
-  - "Rate limiting or auth on the proxy"
-    reason: "Not needed for friends sharing a URL; could add later"
-  - "HTTPS configuration"
-    reason: "Render provides HTTPS automatically on *.onrender.com"
-  - "Multi-language support"
-    reason: "Out of scope permanently — no demand"
-  - "Explanations for non-error moves"
-    reason: "Deferred — no clear value add yet"
+  - "Multi-threaded (pthreads) Stockfish mode"
+    reason: "Requires COOP/COEP HTTP headers which Render free tier doesn't support. Single-threaded WASM is still a massive improvement."
+  - "NNUE neural network weights"
+    reason: "Adds ~20MB download with minimal elo gain over plain WASM at the same time control"
+  - "Self-hosting WASM files in server/public/"
+    reason: "CDN is simpler, faster (global edge), and zero maintenance"
+  - "UI changes beyond the loading indicator"
+    reason: "The engine swap is invisible to users except for speed"
 
 constraints:
-  - "Frontend remains vanilla JS with no build step"
-  - "Express must serve both the API and the static files in production"
-  - "Local dev workflow (python3 -m http.server + node server/index.js) must still work"
-  - "Render free tier (cold starts after inactivity)"
-  - "Deployment happens from main branch"
-  - "API key stays server-side only (not exposed to browser)"
-  - "Per-position timeout formula: movetime_ms + 5000ms buffer"
+  - "No build step — CDN-only"
+  - "Single-threaded WASM only (no SharedArrayBuffer)"
+  - "Must work in Chrome, Firefox, Safari (latest 2 versions)"
+  - "Must gracefully handle browsers that don't support WASM"
 
 success_criteria:
-  - "git push to main triggers Render deploy, app is live at chess-review.onrender.com within minutes"
-  - "Opening chess-review.onrender.com in a browser loads the full app — board, PGN input, controls"
-  - "Loading a PGN and clicking Analyze Game works end-to-end including explanation panel"
-  - "Depth/time toggle switches search mode visually and in the UCI command sent to Stockfish"
-  - "Time mode at 8s finishes each position in ~8 seconds regardless of complexity"
-  - "Depth mode still works exactly as before for testing comparison"
-  - "Local dev still works: python3 -m http.server serves frontend, node server/index.js serves API"
-  - "Textarea shows placeholder text by default; 'Load debug game' button fills in the example PGN"
+  - "Analysis takes noticeably less time — 8s time mode reaches depth ~16-18 instead of ~12-13"
+  - "Same game analyzed in both modes produces the same classifications (blunder/mistake/etc.)"
+  - "Loading the app in a browser with WASM support works normally"
+  - "Loading in a browser without WASM shows a degraded message (no crash)"
+  - "All existing features (PGN loading, navigation, explanation panel, jump-to-error) unchanged"
 
 references:
   - specs/planning-context.yaml
-  - https://render.com/docs/deploy-node-express-app
+  - https://github.com/niklasf/stockfish.wasm
+  - https://cdn.jsdelivr.net/npm/stockfish.wasm@0.10.0/

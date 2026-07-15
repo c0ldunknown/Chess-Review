@@ -1,48 +1,29 @@
-# specs/planning-context.yaml — written by elaborate-spec
-feature_name: "render-deployment-and-time-based-search"
+# specs/planning-context.yaml
+feature_name: "wasm-stockfish-upgrade"
 problem_statement: |
-  The app works only locally (python3 http server + node proxy on separate ports).
-  Stockfish uses fixed-depth search (go depth 15) giving inconsistent per-move times
-  — some positions finish in 1s, others hit the 30s timeout. We need to deploy so the
-  user and their friends can use it online, and add time-based search for consistent
-  per-move analysis speed.
+  The current Stockfish is C++ compiled to JavaScript via Emscripten, running
+  in a Web Worker. JS-emulated C++ is ~3-5x slower than native WebAssembly.
+  Analysis takes longer than it should — a position that takes 8s in JS would
+  finish in ~2s with WASM at the same depth.
 constraints:
   - "Must remain a static vanilla JS frontend (no build step)"
-  - "Express backend proxy holds the OpenRouter API key"
-  - "Render free tier (spins down on inactivity)"
-  - "Depth mode must still work for testing alongside new time mode"
-  - "Local dev workflow must still work (python3 -m http.server + node server/index.js)"
+  - "CDN-hosted WASM files (no self-hosting)"
+  - "Must work on Render free tier without custom headers"
+  - "Must preserve the current time-based search (8s default)"
+  - "Must fall back gracefully if WASM compilation fails"
+  - "Local dev must still work (node server/index.js)"
 out_of_scope:
-  - "Stockfish WASM migration (future performance improvement)"
-  - "Supabase / game storage integration"
-  - "Custom domain"
-  - "CI/CD beyond Render auto-deploy from git"
-  - "Explanation filtering by side (already handled in current code)"
+  - "Multi-threaded Stockfish (requires COOP/COEP headers not available on Render free tier)"
+  - "Stockfish NNUE neural network weights (larger binary, minimal gain over plain WASM)"
+  - "Any UI changes beyond the Stockfish loading indicator"
 out_of_scope_permanent:
   - "Multi-language support"
   - "Voice/audio explanations"
-  - "Explanations for non-error moves"
 key_decisions:
-  - decision: "Render free tier web service"
-    rationale: "Zero cost, zero config beyond one YAML file, supports Node.js + static files"
-  - decision: "Single Express service serving static files + API"
-    rationale: "Simplest deploy, no CORS, future-proof for Supabase"
-  - decision: "Time-based Stockfish with mode toggle (Depth | Time)"
-    rationale: "Gives consistent per-move analysis time while preserving depth mode for testing"
-  - decision: "Time dropdown values: 2s / 5s / 8s / 15s / 30s"
-    rationale: "Matches Lichess default (8s) with faster/slower options"
-  - decision: "Per-position timeout = movetime + 5s buffer"
-    rationale: "Prevents hangs without cutting off legitimate searches"
-unresolved:
-  - question: "File layout — use public/ directory or serve from repo root?"
-    options:
-      - "public/ directory (cleaner, conventional)"
-      - "Serve from root (fewer file moves)"
-  - question: "Deploy from main or current feature branch?"
-    options:
-      - "main (stable)"
-      - "jeremykozura/jkh-3-natural-language-analysis (work in progress)"
-  - question: "Keep example PGN in textarea or replace with placeholder?"
-    options:
-      - "Keep example game (ready to load)"
-      - "Placeholder text (Paste PGN here...)"
+  - decision: "Use stockfish.wasm package from jsdelivr CDN"
+    rationale: "Same author as most Stockfish WASM ports (Niklas Fiekas), used by Lichess. Well-maintained, single-file CDN load."
+  - decision: "Single-threaded WASM mode (no SharedArrayBuffer)"
+    rationale: "Render free tier can't set COOP/COEP headers needed for pthreads. Single-threaded WASM is still 3-5x faster than current JS-emulated Stockfish."
+  - decision: "Load WASM via CDN importScripts in Worker, same pattern as current fetch→blob→Worker"
+    rationale: "Minimal code change — replace the CDN URL and adjust Worker init. No build step."
+unresolved: []

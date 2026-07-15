@@ -2,7 +2,7 @@
 epics:
   e01:
     title: "Natural language blunder analysis"
-    status: planned
+    status: completed
     stories:
       e01s01:
         title: "Proxy server + explanation panel end-to-end"
@@ -30,3 +30,37 @@ epics:
           e01s03t02: passing
           e01s03t03: passing
           e01s03t04: passing
+  e02:
+    title: "Render deployment + time-based Stockfish search"
+    status: completed
+    stories:
+      e02s01:
+        title: "Time-based Stockfish search"
+        status: passing
+        tasks:
+          e02s01t01: passing
+          e02s01t02: passing
+          e02s01t03: passing
+          e02s01t04: passing
+          e02s01t05: passing
+          e02s01t06: passing
+      e02s02:
+        title: "Single-service Express with static files"
+        status: passing
+        tasks:
+          e02s02t01: passing
+          e02s02t02: passing
+          e02s02t03: passing
+          e02s02t04: passing
+          e02s02t05: passing
+          e02s02t06: passing
+      e02s03:
+        title: "Render deployment"
+        status: passing
+        tasks:
+          e02s03t01: passing
+          e02s03t02: passing
+          e02s03t03: passing
+          e02s03t04: passing
+          e02s03t05: passing
+          e02s03t06: passing

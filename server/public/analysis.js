@@ -9,7 +9,7 @@ class ChessAnalysis {
     this.targetDepth = 15;
     this.searchMode = 'time';     // 'depth' or 'time'
     this.searchTime = 8000;       // ms for movetime mode
-    this.cdnUrl = 'https://cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.2/stockfish.js';
+    this.cdnUrl = 'https://cdn.jsdelivr.net/npm/stockfish.wasm@0.10.0/stockfish.js';
     this._requestId = 0;
   }
 
@@ -17,22 +17,44 @@ class ChessAnalysis {
     if (this.isReady) return;
 
     try {
-      // Fetch Stockfish from CDN and create blob URL to bypass CORS for Worker
-      const response = await fetch(this.cdnUrl);
-      if (!response.ok) throw new Error('Failed to fetch Stockfish from CDN');
-      const code = await response.text();
-      const blob = new Blob([code], { type: 'application/javascript' });
-      const workerUrl = URL.createObjectURL(blob);
-      
-      this.worker = new Worker(workerUrl);
-      this.worker.onmessage = (e) => this.handleWorkerMessage(e.data);
+      // Create a Worker that loads stockfish.wasm via importScripts
+      // The WASM loader is async, so we need to wait for it to signal ready
+      const workerScript = [
+        'importScripts("' + this.cdnUrl + '");',
+        'Stockfish().then(function(sf) {',
+        '  sf.addMessageListener(function(msg) { self.postMessage(msg); });',
+        '  self.onmessage = function(e) { sf.postMessage(e.data); };',
+        '  self.postMessage("wasm_ready");',
+        '}).catch(function(err) {',
+        '  self.postMessage("wasm_error:" + err.message);',
+        '});'
+      ].join('\n');
 
-      // Initialize UCI
+      const blob = new Blob([workerScript], { type: 'application/javascript' });
+      const workerUrl = URL.createObjectURL(blob);
+
+      this.worker = new Worker(workerUrl);
+
+      // Wait for the Worker to signal WASM is ready
+      await new Promise((resolve, reject) => {
+        this.worker.onmessage = (e) => {
+          const msg = e.data;
+          if (msg === 'wasm_ready') {
+            // Now set up the normal message handler and resolve
+            this.worker.onmessage = (e2) => this.handleWorkerMessage(e2.data);
+            resolve();
+          } else if (typeof msg === 'string' && msg.startsWith('wasm_error:')) {
+            reject(new Error(msg.slice(11)));
+          }
+        };
+      });
+
+      // Initialize UCI — commands flow through the Worker → engine forwarding
       this.send('uci');
       this.send('isready');
       this.isReady = true;
     } catch (err) {
-      console.error('Stockfish init error:', err);
+      console.error('Stockfish WASM init error:', err);
       throw err;
     }
   }
