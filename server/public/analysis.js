@@ -17,20 +17,11 @@ class ChessAnalysis {
     if (this.isReady) return;
 
     try {
-      // Create a Worker that loads Stockfish 18 WASM from CDN
-      // and sets up UCI communication via postMessage
-      const workerScript = [
-        'var baseUrl = "' + this.cdnBase + '";',
-        '// Load the Stockfish18 WASM module via importScripts',
-        'importScripts(baseUrl + "stockfish-18-lite-single.js");',
-        '// The module auto-initializes in the Worker context, setting up',
-        '// onmessage for UCI commands and postMessage for engine output.'
-      ].join('\n');
-
-      const blob = new Blob([workerScript], { type: 'application/javascript' });
-      const workerUrl = URL.createObjectURL(blob);
-
-      this.worker = new Worker(workerUrl);
+      // Load the Stockfish 18 WASM Worker from our server.
+      // The worker loads stockfish-18-lite-single via importScripts,
+      // which auto-initializes and derives the .wasm URL from its own filename.
+      // We serve both stockfish.js (worker) and stockfish.wasm (binary) from Express.
+      this.worker = new Worker('/stockfish.js');
       this.worker.onmessage = (e) => this.handleWorkerMessage(e.data);
 
       // Initialize UCI
