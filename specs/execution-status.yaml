@@ -6,14 +6,14 @@ epics:
     stories:
       e01s01:
         title: "Proxy server + explanation panel end-to-end"
-        status: planned
+        status: passing
         tasks:
-          e01s01t01: planned
-          e01s01t02: planned
-          e01s01t03: planned
-          e01s01t04: planned
-          e01s01t05: planned
-          e01s01t06: planned
+          e01s01t01: passing
+          e01s01t02: passing
+          e01s01t03: passing
+          e01s01t04: passing
+          e01s01t05: passing
+          e01s01t06: passing
       e01s02:
         title: "Jump-to-error navigation"
         status: planned
