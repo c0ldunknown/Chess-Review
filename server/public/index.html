@@ -19,26 +19,10 @@
             id="pgnInput"
             class="pgn-input"
             rows="4"
-
-          >[Event "Live Chess"]
-[Site "Chess.com"]
-[Date "2026.07.10"]
-[Round "?"]
-[White "vishal6877"]
-[Black "jkz1234"]
-[Result "0-1"]
-[TimeControl "600"]
-[WhiteElo "504"]
-[BlackElo "498"]
-[Termination "jkz1234 won by checkmate"]
-[ECO "C50"]
-[EndTime "10:28:36 GMT+0000"]
-[Link "https://www.chess.com/game/live/171373296294?move=0"]
-
-1. e4 e5 2. Nf3 Nc6 3. Nc3 Nf6 4. Bc4 Bc5 5. d3 d6 6. O-O O-O 7. Ng5 h6 8. Nf3
-Bg4 9. Nb5 Qd7 10. h3 Bh5 11. g4 Bg6 12. Nh4 Ne7 13. a4 a6 14. Nc3 Rfe8 15. g5
-Bh5 16. Qd2 Qxh3 17. Ng2 Bf3 18. Rd1 Qxg2# 0-1</textarea>
+            placeholder="Paste a PGN here to analyze..."
+          ></textarea>
           <button id="loadBtn" class="btn btn-primary">Load Game</button>
+          <button id="debugGameBtn" class="btn btn-secondary">Load debug game</button>
         </div>
       </div>
     </header>
@@ -106,13 +90,18 @@ Bh5 16. Qd2 Qxh3 17. Ng2 Bf3 18. Rd1 Qxg2# 0-1</textarea>
         <div class="analysis-panel">
           <h3>Engine Analysis</h3>
           <div class="analysis-controls">
-            <label for="depthSelect">Depth:</label>
+            <label class="search-mode-label">
+              <input type="radio" name="searchMode" value="time" checked> Time
+            </label>
+            <label class="search-mode-label">
+              <input type="radio" name="searchMode" value="depth"> Depth
+            </label>
             <select id="depthSelect" class="depth-select">
-              <option value="10">10</option>
-              <option value="12">12</option>
-              <option value="15" selected>15</option>
-              <option value="18">18</option>
-              <option value="20">20</option>
+              <option value="2">2s</option>
+              <option value="5">5s</option>
+              <option value="8" selected>8s</option>
+              <option value="15">15s</option>
+              <option value="30">30s</option>
             </select>
             <button id="analyzeGameBtn" class="btn btn-secondary">Analyze Game</button>
           </div>

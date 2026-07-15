@@ -1,66 +1,84 @@
 # specs/product/SCOPE_LATEST.yaml
-# Scope for: Natural language blunder analysis
+# Scope for: Render deployment + time-based Stockfish search
 
-core_value: "When reviewing a chess game, every blunder and mistake gets a concise, natural-language explanation of what went wrong and what to play instead — powered by a cheap LLM API through a local proxy."
+core_value: "Chess Review becomes an online app friends can use without any local setup, and Stockfish analysis finishes each move in a consistent time instead of wildly variable waits."
 
 summary: |
-  The app already analyzes games with Stockfish and classifies every move into
-  10 categories (brilliant through blunder) with colored badges. What's missing
-  is the "why." This scope adds a text panel next to the board that shows a
-  1-2 sentence explanation for the current move when it's a blunder or mistake.
+  The app currently requires both a local HTTP server (python3 -m http.server)
+  and the Express LLM proxy (node server/index.js) running simultaneously on
+  different ports. This scope deploys everything behind a single URL so the
+  user and their friends can open it in a browser and analyze games immediately.
 
-  A tiny Node.js Express backend proxy holds the OpenRouter API key and calls
-  DeepSeek V4 Flash for generation. The frontend caches explanations per move
-  so re-navigation doesn't re-fetch. Navigation buttons let the user jump
-  between only the error moves (blunders/mistakes).
+  On the engine side, Stockfish currently searches a fixed number of plies (depth
+  15) per position. Complex positions take 30+ seconds while simple ones finish
+  in under a second. A new time-based search mode lets the user choose a duration
+  (e.g., 8 seconds per move, matching Lichess's default) for consistent analysis
+  times. The existing depth mode is preserved via a toggle for testing.
 
-  Mistake explanations are toggleable via a single config flag, so the user
-  can experiment and decide if they're too noisy.
+  The frontend is restructured so Express serves the static files from a public/
+  directory, and API URLs use relative paths (/api/explain) to work in both local
+  dev and production. A "Load debug game" affordance replaces the hardcoded PGN
+  in the textarea.
 
 in_scope:
-  - "Express backend proxy: POST /api/explain with { fen, move, bestMove, classification } → returns explanation text"
-  - "OpenRouter integration with DeepSeek V4 Flash as default model"
-  - "Model-swappable architecture via env/config — change model string without code changes"
-  - "Explanation panel UI: positioned next to the board, shows text for current move"
-  - "Panel content updates reactively when navigating moves"
-  - "Explanation caching: store per-move explanations so re-navigation is instant"
-  - "Jump-to-error navigation: prev/next buttons that skip to blunders/mistakes only"
-  - "Mistake toggle: single config flag to enable/disable generating explanations for mistakes (vs only blunders)"
-  - "Config/env file (.env or config.js) for API key, model, endpoint URL"
+  - "Move frontend static files (index.html, .js, .css) into server/public/"
+    reason: "Express can serve them in production and dev with one line"
+  - "Update Express server to serve static files from public/"
+    reason: "Single service, single URL in production"
+  - "Change frontend API URLs from http://localhost:3001/api/explain to /api/explain"
+    reason: "Relative URLs work both locally (via proxy) and on Render"
+  - "Add depth/time mode toggle to the analysis controls (radio or switch)"
+    reason: "User can switch between consistent time-based search and depth mode for testing"
+  - "Update the dropdown values dynamically based on mode"
+    reason: "Depth mode shows 10/12/15/18/20; Time mode shows 2s/5s/8s/15s/30s"
+  - "Implement go movetime N in the engine for time mode"
+    reason: "Stockfish movetime gives consistent per-position search time"
+  - "Set per-position timeout to movetime + 5s safety buffer"
+    reason: "Prevents hangs without cutting off legitimate searches"
+  - "Add a 'Load debug game' button or link that fills in the example PGN"
+    reason: "User wants placeholder by default but quick access to a test game"
+  - "Create render.yaml for Render deployment (web service, Node, start command)"
+    reason: "Render needs this to auto-deploy from GitHub"
+  - "Remove the hosted deployment item from out_of_scope (it's now in scope)"
+    reason: "This scope delivers exactly that"
 
 out_of_scope:
-  - "Explanations for non-error moves (good, excellent, brilliant, etc.)"
-    reason: "Deferred — not needed for MVP; adds cost with unclear value"
-  - "Multi-language support"
-    reason: "Out of scope entirely — no demand; would add prompt complexity"
-  - "Voice/audio explanations"
-    reason: "Not valuable for a text-based review tool"
-  - "Saving/exporting explanations"
-    reason: "Deferred — no user request yet; adds persistence complexity"
-  - "Hosted deployment of the proxy"
-    reason: "Deferred to later exploration; local-only for now"
+  - "Stockfish WASM migration"
+    reason: "Deferred — future performance improvement; JS stockfish is sufficient for now"
+  - "Supabase / game storage integration"
+    reason: "Deferred — no storage needed yet; scope stays focused on deployment + search"
+  - "Custom domain"
+    reason: "Not needed — chess-review.onrender.com is fine for friends"
+  - "CI/CD beyond Render auto-deploy from git"
+    reason: "Render handles this; no additional pipeline needed"
   - "Rate limiting or auth on the proxy"
-    reason: "Local-only; not needed until hosting"
-  - "Explanations for the opponent's errors specifically separated from player's"
-    reason: "Already covered — any blunder/mistake gets an explanation regardless of side; no need for side-filtering"
-  - "Custom prompt editing UI"
-    reason: "Prompt is hardcoded; user can edit the prompt template in code if desired"
+    reason: "Not needed for friends sharing a URL; could add later"
+  - "HTTPS configuration"
+    reason: "Render provides HTTPS automatically on *.onrender.com"
+  - "Multi-language support"
+    reason: "Out of scope permanently — no demand"
+  - "Explanations for non-error moves"
+    reason: "Deferred — no clear value add yet"
 
 constraints:
-  - "Frontend is vanilla JS with no build step — any UI additions must be inline or script-src"
-  - "Backend proxy must be Node.js Express (same language as frontend)"
-  - "API key stored server-side only (not exposed to browser)"
-  - "DeepSeek V4 Flash via OpenRouter is the initial model; architecture must support swapping"
-  - "Explanations must be concise (1-2 sentences, matter-of-fact tone)"
-  - "All API calls go through the proxy — frontend never calls OpenRouter directly"
+  - "Frontend remains vanilla JS with no build step"
+  - "Express must serve both the API and the static files in production"
+  - "Local dev workflow (python3 -m http.server + node server/index.js) must still work"
+  - "Render free tier (cold starts after inactivity)"
+  - "Deployment happens from main branch"
+  - "API key stays server-side only (not exposed to browser)"
+  - "Per-position timeout formula: movetime_ms + 5000ms buffer"
 
 success_criteria:
-  - "User loads a PGN, runs Stockfish analysis, navigates to a blunder, and sees a sensible explanation in the panel"
-  - "Navigating to a non-error move shows no explanation (panel is empty or hidden)"
-  - "Jump-to-blunder buttons skip non-error moves correctly"
-  - "Setting mistakes off via config flag causes only blunders to generate explanations"
-  - "Re-visiting a move shows cached explanation instantly (no re-fetch)"
-  - "Swapping the model string in config switches to a different OpenRouter model without code changes"
+  - "git push to main triggers Render deploy, app is live at chess-review.onrender.com within minutes"
+  - "Opening chess-review.onrender.com in a browser loads the full app — board, PGN input, controls"
+  - "Loading a PGN and clicking Analyze Game works end-to-end including explanation panel"
+  - "Depth/time toggle switches search mode visually and in the UCI command sent to Stockfish"
+  - "Time mode at 8s finishes each position in ~8 seconds regardless of complexity"
+  - "Depth mode still works exactly as before for testing comparison"
+  - "Local dev still works: python3 -m http.server serves frontend, node server/index.js serves API"
+  - "Textarea shows placeholder text by default; 'Load debug game' button fills in the example PGN"
 
 references:
   - specs/planning-context.yaml
+  - https://render.com/docs/deploy-node-express-app

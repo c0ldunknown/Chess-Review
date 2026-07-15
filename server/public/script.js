@@ -275,13 +275,26 @@
       $('#analyzeGameBtn').text('Cancel Analysis');
       $('#analysisProgress').removeClass('hidden');
 
-      var depth = parseInt($('#depthSelect').val()) || 15;
+      // Read search mode from UI
+      var searchMode = $('input[name="searchMode"]:checked').val() || 'time';
+      var searchValue = parseInt($('#depthSelect').val()) || 8;
+
+      // Configure engine
+      R.engine.searchMode = searchMode;
+      if (searchMode === 'time') {
+        R.engine.searchTime = searchValue * 1000;
+      } else {
+        // Ensure depth mode has a fallback if value looks like seconds
+        var depthVal = searchValue > 30 ? 15 : searchValue;
+        R.engine.searchTime = 8000;
+      }
+
       R.analysisQueue = [{ index: -1, fen: R.startFen }];
       R.moveHistory.forEach(function (move, i) {
         R.analysisQueue.push({ index: i, fen: move.fen });
       });
       R.analysisIndex = 0;
-      runNextAnalysisQueueItem(depth);
+      runNextAnalysisQueueItem();
     });
   }
 
@@ -303,7 +316,7 @@
     }
   }
 
-  function runNextAnalysisQueueItem(depth) {
+  function runNextAnalysisQueueItem() {
     if (!R.isAnalyzingGame) return;
 
     if (R.analysisIndex >= R.analysisQueue.length) {
@@ -327,13 +340,20 @@
         R.moveHistory[item.index].bestMove = '';
       }
       R.analysisIndex++;
-      setTimeout(function () { runNextAnalysisQueueItem(depth); }, 0);
+      setTimeout(function () { runNextAnalysisQueueItem(); }, 0);
       return;
     }
 
     var lastScore = 0;
     var lastScoreType = 'cp';
     var timedOut = false;
+
+    // Adaptive timeout based on search mode
+    var timeoutMs = 30000;
+    var depthArg = 15;
+    if (R.engine.searchMode === 'time') {
+      timeoutMs = R.engine.searchTime + 5000;
+    }
 
     var timeoutId = setTimeout(function () {
       timedOut = true;
@@ -346,12 +366,12 @@
         R.moveHistory[item.index].bestMove = '';
       }
       R.analysisIndex++;
-      runNextAnalysisQueueItem(depth);
-    }, 30000);
+      runNextAnalysisQueueItem();
+    }, timeoutMs);
 
     R.engine.analyzePosition(
       item.fen,
-      depth,
+      depthArg,
       function (info) {
         if (info.scoreType) {
           lastScore = info.score;
@@ -369,7 +389,7 @@
           R.moveHistory[item.index].bestMove = bestMove;
         }
         R.analysisIndex++;
-        runNextAnalysisQueueItem(depth);
+        runNextAnalysisQueueItem();
       }
     );
   }
@@ -458,7 +478,7 @@
       $('#progressText').text('Generating explanations ' + (done + 1) + ' / ' + errorMoves.length + '...');
 
       $.ajax({
-        url: 'http://localhost:3001/api/explain',
+        url: '/api/explain',
         method: 'POST',
         contentType: 'application/json',
         data: JSON.stringify({
@@ -641,6 +661,13 @@
     loadGame($pgnInput.val());
   });
 
+  // Load debug game (fill example PGN)
+  $('#debugGameBtn').on('click', function () {
+    var example = R.examplePgn || '';
+    $pgnInput.val(example);
+    loadGame(example);
+  });
+
   // Ctrl/Cmd+Enter
   $pgnInput.on('keydown', function (e) {
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
@@ -653,6 +680,26 @@
     R.errorFilter = $(this).val();
     R.updateNavState();
     R.updateExplanationPanel();
+  });
+
+  // Search mode toggle — switch dropdown values
+  $('input[name="searchMode"]').on('change', function () {
+    var mode = $(this).val();
+    var $select = $('#depthSelect');
+    $select.empty();
+    if (mode === 'time') {
+      $select.append('<option value="2">2s</option>');
+      $select.append('<option value="5">5s</option>');
+      $select.append('<option value="8" selected>8s</option>');
+      $select.append('<option value="15">15s</option>');
+      $select.append('<option value="30">30s</option>');
+    } else {
+      $select.append('<option value="10">10</option>');
+      $select.append('<option value="12">12</option>');
+      $select.append('<option value="15" selected>15</option>');
+      $select.append('<option value="18">18</option>');
+      $select.append('<option value="20">20</option>');
+    }
   });
 
   // Analyze

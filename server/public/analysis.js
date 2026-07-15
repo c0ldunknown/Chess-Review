@@ -7,6 +7,8 @@ class ChessAnalysis {
     this.onCompleteCallback = null;
     this.currentPositionFen = '';
     this.targetDepth = 15;
+    this.searchMode = 'time';     // 'depth' or 'time'
+    this.searchTime = 8000;       // ms for movetime mode
     this.cdnUrl = 'https://cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.2/stockfish.js';
     this._requestId = 0;
   }
@@ -68,7 +70,11 @@ class ChessAnalysis {
     this.analyzing = true;
 
     this.send('position fen ' + fen);
-    this.send('go depth ' + depth);
+    if (this.searchMode === 'time') {
+      this.send('go movetime ' + this.searchTime);
+    } else {
+      this.send('go depth ' + depth);
+    }
   }
 
   handleWorkerMessage(line) {

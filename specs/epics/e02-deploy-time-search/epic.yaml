@@ -1,0 +1,37 @@
+# specs/epics/e02-deploy-time-search/epic.yaml
+epic_id: e02
+title: "Render deployment + time-based Stockfish search"
+description: >
+  Deploy the full app to Render as a single Express service serving both
+  the static frontend files and the LLM proxy API. Add time-based Stockfish
+  search (go movetime N) with a depth/time mode toggle so analysis time is
+  consistent per position.
+
+  On Render, the app lives at a single URL (chess-review.onrender.com) that
+  friends can open without any local setup. Locally, the Express server now
+  serves the frontend too so you only need one terminal.
+
+  The frontend gets a minor restructure: static files move to server/public/,
+  API URLs become relative, and the default PGN textarea shows a placeholder
+  with a "Load debug game" button for quick testing.
+bcps: 8
+stories:
+  - story_id: e02s01
+    title: "Time-based Stockfish search"
+    bcps: 3
+    status: planned
+  - story_id: e02s02
+    title: "Single-service Express with static files"
+    bcps: 3
+    status: planned
+  - story_id: e02s03
+    title: "Render deployment"
+    bcps: 2
+    status: planned
+dependencies:
+  - e02s01: []
+  - e02s02: []
+  - e02s03: ["e02s02"]
+references:
+  - specs/product/SCOPE_LATEST.yaml
+  - specs/planning-context.yaml

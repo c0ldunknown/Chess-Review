@@ -1,0 +1,78 @@
+# e02s03-tasks.yaml
+story_id: e02s03
+title: "Render deployment"
+bcps: 2
+status: failing
+description: >
+  Create render.yaml and push the project to the main branch on GitHub.
+  Configure Render to auto-deploy from GitHub. Verify the app is live
+  at chess-review.onrender.com and works end-to-end.
+tasks:
+  - id: e02s03t01
+    description: >
+      Create render.yaml at the repo root. Web service config:
+      name: chess-review, env: node, buildCommand: cd server && npm install,
+      startCommand: node server/index.js, healthCheckPath: /.
+    verify: |
+      test -f render.yaml && grep -q 'startCommand.*index.js' render.yaml && grep -q 'buildCommand.*install' render.yaml
+    risk: P2
+    status: failing
+    allure:
+      severity: normal
+      categories:
+        - "Infrastructure"
+
+  - id: e02s03t02
+    description: >
+      Ensure .env is in .gitignore so API keys aren't committed.
+      Verify .gitignore exists and contains .env.
+    verify: |
+      grep -q '\.env' .gitignore
+    risk: P2
+    status: failing
+    allure:
+      severity: normal
+      categories:
+        - "Security"
+
+  - id: e02s03t03
+    description: >
+      Verify server/package.json has correct start script.
+      Ensure npm install works cleanly in the server directory.
+    verify: |
+      grep -q '"start".*"node index.js"' server/package.json
+    risk: P2
+    status: failing
+    allure:
+      severity: normal
+      categories:
+        - "Infrastructure"
+
+  - id: e02s03t04
+    description: >
+      Commit all changes and push to main branch on GitHub.
+    verify: |
+      echo "Manual: git push origin main"
+
+  - id: e02s03t05
+    description: >
+      Set up Render web service via the Render dashboard:
+      Connect GitHub repo (main branch), Render detects render.yaml,
+      set environment variables (OPENROUTER_API_KEY, MODEL_NAME,
+      EXPLAIN_MISTAKES, PORT=10000).
+    verify: |
+      echo "Manual: visit render.com, create Web Service, set env vars"
+
+  - id: e02s03t06
+    description: >
+      Verify the live deployment:
+      Open https://chess-review.onrender.com, load debug game,
+      analyze a game, check explanation panel works.
+    verify: |
+      curl -s https://chess-review.onrender.com | grep -q 'Chess Review'
+    risk: P1
+    status: failing
+    allure:
+      severity: high
+      categories:
+        - "Integration"

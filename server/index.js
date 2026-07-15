@@ -2,6 +2,7 @@
 // Tiny Express backend that holds the OpenRouter API key and calls DeepSeek
 
 require('dotenv').config();
+const path = require('path');
 const express = require('express');
 const cors = require('cors');
 
@@ -10,9 +11,10 @@ const PORT = process.env.PORT || 3001;
 
 app.use(cors());
 app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public')));
 
-// Health check
-app.get('/', (req, res) => {
+// Health check (static files handle GET /, this is fallback for API)
+app.get('/api/health', (req, res) => {
   res.json({ status: 'running', model: process.env.MODEL_NAME || 'deepseek/deepseek-chat' });
 });
 

@@ -1,0 +1,93 @@
+# e02s01-tasks.yaml
+story_id: e02s01
+title: "Time-based Stockfish search"
+bcps: 3
+status: passing
+description: >
+  Add time-based Stockfish search alongside the existing depth-based search.
+  A mode toggle (Depth | Time) switches the dropdown between depth values
+  (10/12/15/18/20) and time values (2s/5s/8s/15s/30s). The per-position
+  timeout adapts to movetime + 5s buffer.
+tasks:
+  - id: e02s01t01
+    description: >
+      Add searchMode config to ChessAnalysis (depth vs movetime).
+      Support both `go depth N` and `go movetime N` commands.
+      Store the active mode so analyzePosition picks the right strategy.
+    verify: |
+      test -f analysis.js && grep -q 'searchMode\|movetime' analysis.js
+    risk: P1
+    status: passing
+    allure:
+      severity: high
+      categories:
+        - "Engine"
+
+  - id: e02s01t02
+    description: >
+      Update analyzePosition() to accept and use a search mode.
+      If mode is 'time', send `go movetime N` instead of `go depth N`.
+      If mode is 'depth', send `go depth N` as before.
+    verify: |
+      grep -q 'movetime' analysis.js && grep -q 'go depth' analysis.js
+    risk: P1
+    status: passing
+    allure:
+      severity: high
+      categories:
+        - "Engine"
+
+  - id: e02s01t03
+    description: >
+      Add depth/time radio toggle to index.html in the analysis controls.
+      Two radio buttons: "Depth" and "Time". Default to "Time".
+    verify: |
+      grep -q 'type=.radio.*name=.searchMode\|type=.radio.*value=.time' index.html
+    risk: P2
+    status: passing
+    allure:
+      severity: normal
+      categories:
+        - "UI"
+
+  - id: e02s01t04
+    description: >
+      Add dynamic dropdown logic: when toggle is "Depth", show depth values
+      (10/12/15/18/20). When toggle is "Time", show time values (2s/5s/8s/15s/30s).
+      Update the dropdown options on toggle change.
+    verify: |
+      grep -q 'searchMode' script.js
+    risk: P2
+    status: passing
+    allure:
+      severity: normal
+      categories:
+        - "UI"
+
+  - id: e02s01t05
+    description: >
+      Update the per-position timeout in runNextAnalysisQueueItem.
+      If in time mode, timeout = movetime_ms + 5000ms.
+      If in depth mode, keep the existing 30s timeout.
+    verify: |
+      grep -q '5000' script.js
+    risk: P1
+    status: passing
+    allure:
+      severity: high
+      categories:
+        - "Engine"
+
+  - id: e02s01t06
+    description: >
+      Verify end-to-end: load a game, switch to Time mode (8s), click Analyze,
+      observe each position takes roughly 8 seconds. Switch back to Depth mode (15),
+      observe variable times. Both modes produce sensible evaluation scores.
+    verify: |
+      echo "Manual: load game, set Time 8s, analyze — check ~8s per position"
+    risk: P2
+    status: failing
+    allure:
+      severity: normal
+      categories:
+        - "Integration"
