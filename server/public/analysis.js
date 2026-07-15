@@ -9,7 +9,7 @@ class ChessAnalysis {
     this.targetDepth = 15;
     this.searchMode = 'time';     // 'depth' or 'time'
     this.searchTime = 8000;       // ms for movetime mode
-    this.cdnUrl = 'https://cdn.jsdelivr.net/npm/stockfish.wasm@0.10.0/stockfish.js';
+    this.cdnUrl = 'https://cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.2/stockfish.js';
     this._requestId = 0;
   }
 
@@ -17,57 +17,22 @@ class ChessAnalysis {
     if (this.isReady) return;
 
     try {
-      // Create a Worker that loads stockfish.wasm via importScripts
-      // The WASM loader is async, so we need to wait for it to signal ready
-      // Derive the WASM base URL from the stockfish.js CDN path
-      var wasmBase = this.cdnUrl.substring(0, this.cdnUrl.lastIndexOf('/') + 1);
-      const workerScript = [
-        'importScripts("' + this.cdnUrl + '");',
-        'var sf = Stockfish({',
-        '  locateFile: function(path) {',
-        '    return "' + wasmBase + '" + path;',
-        '  }',
-        '});',
-        'sf.ready.then(function() {',
-        '  sf.addMessageListener(function(msg) { self.postMessage(msg); });',
-        '  self.onmessage = function(e) { sf.postMessage(e.data); };',
-        '  self.postMessage("wasm_ready");',
-        '}).catch(function(err) {',
-        '  self.postMessage("wasm_error:" + (err && err.message ? err.message : err));',
-        '});'
-      ].join('\n');
-
-      const blob = new Blob([workerScript], { type: 'application/javascript' });
+      // Fetch Stockfish from CDN and create blob URL to bypass CORS for Worker
+      const response = await fetch(this.cdnUrl);
+      if (!response.ok) throw new Error('Failed to fetch Stockfish from CDN');
+      const code = await response.text();
+      const blob = new Blob([code], { type: 'application/javascript' });
       const workerUrl = URL.createObjectURL(blob);
-
+      
       this.worker = new Worker(workerUrl);
+      this.worker.onmessage = (e) => this.handleWorkerMessage(e.data);
 
-      // Wait for the Worker to signal WASM is ready, with timeout
-      await new Promise((resolve, reject) => {
-        var timeout = setTimeout(function () {
-          reject(new Error('Stockfish WASM load timed out (30s)'));
-        }, 30000);
-
-        this.worker.onmessage = (e) => {
-          const msg = e.data;
-          if (msg === 'wasm_ready') {
-            clearTimeout(timeout);
-            // Now set up the normal message handler and resolve
-            this.worker.onmessage = (e2) => this.handleWorkerMessage(e2.data);
-            resolve();
-          } else if (typeof msg === 'string' && msg.startsWith('wasm_error:')) {
-            clearTimeout(timeout);
-            reject(new Error(msg.slice(11)));
-          }
-        };
-      });
-
-      // Initialize UCI — commands flow through the Worker → engine forwarding
+      // Initialize UCI
       this.send('uci');
       this.send('isready');
       this.isReady = true;
     } catch (err) {
-      console.error('Stockfish WASM init error:', err);
+      console.error('Stockfish init error:', err);
       throw err;
     }
   }
