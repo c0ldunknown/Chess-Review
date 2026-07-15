@@ -16,12 +16,12 @@ epics:
           e01s01t06: passing
       e01s02:
         title: "Jump-to-error navigation"
-        status: planned
+        status: passing
         tasks:
-          e01s02t01: planned
-          e01s02t02: planned
-          e01s02t03: planned
-          e01s02t04: planned
+          e01s02t01: passing
+          e01s02t02: passing
+          e01s02t03: passing
+          e01s02t04: passing
       e01s03:
         title: "Config toggle for mistakes + model swapping"
         status: planned
