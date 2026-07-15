@@ -1,0 +1,21 @@
+# Chess Review — State
+# Active session tracking
+
+workflow_mode: solo-git
+
+session:
+  active_flow: null
+  active_epic_id: null
+  active_story_id: null
+
+git:
+  branch: jeremykozura/jkh-2-create-basic-interface
+  head: bf5c899
+  clean: true
+
+handoff:
+  next_skill: null
+  notes: "Bootstrapped bigpowers conventions. Feature branch has 5 commits ahead of main."
+
+metrics:
+  story_start: null

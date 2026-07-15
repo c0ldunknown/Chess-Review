@@ -1,36 +1,23 @@
-$(document).ready(function () {
-  const boardEl = $('#board');
-  const pgnInput = $('#pgnInput');
-  const loadBtn = $('#loadBtn');
-  const showDataCheckbox = $('#showData');
-  const dataPanel = $('#dataPanel');
-  const gameInfo = $('#gameInfo');
-  const moveList = $('#moveList');
+// Chess Review — Main Orchestration
+// UI event wiring and top-level application logic
 
-  let board = null;
-  let currentMoveIndex = -1;
-  let moveHistory = [];
+(function () {
+  const R = window.ChessReview;
+  R.engine = new ChessAnalysis();
 
-  // Initialize chessboard.js
-  function initBoard() {
-    board = Chessboard('board', {
-      pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png',
-      position: 'start',
-      draggable: false,
-      showNotation: true,
-    });
+  // DOM references
+  const $pgnInput = $('#pgnInput');
+  const $loadBtn = $('#loadBtn');
+  const $showData = $('#showData');
+  const $dataPanel = $('#dataPanel');
+  const $gameInfo = $('#gameInfo');
+  const $moveList = $('#moveList');
 
-    // Resize board to fit container
-    $(window).on('resize', function () {
-      if (board) board.resize();
-    });
-  }
+  // --- Helpers ---
 
-  // Show error message
   function showError(message) {
-    const existing = $('.error-message');
-    if (existing.length) existing.remove();
-
+    var el = $('.error-message');
+    if (el.length) el.remove();
     $('<p class="error-message"></p>')
       .text(message)
       .appendTo('.input-group')
@@ -38,179 +25,514 @@ $(document).ready(function () {
       .fadeOut(300, function () { $(this).remove(); });
   }
 
-  // Set loading state
   function setLoading(isLoading) {
-    loadBtn.prop('disabled', isLoading);
-    loadBtn.html(isLoading
+    $loadBtn.prop('disabled', isLoading);
+    $loadBtn.html(isLoading
       ? '<span class="loading-spinner"></span> Loading...'
       : 'Load Game'
     );
   }
 
-  // Parse PGN string into game details
-  function parsePgn(pgnStr) {
-    const chess = new Chess();
-    chess.loadPgn(pgnStr);
-    const header = chess.header();
+  function formatUciMove(uci) {
+    if (!uci || uci.length < 4) return uci;
+    var from = uci.substring(0, 2);
+    var to = uci.substring(2, 4);
+    var promo = uci.substring(4);
+    return from + ' \u2192 ' + to + (promo ? ' (' + promo.toUpperCase() + ')' : '');
+  }
+  R.formatUciMove = formatUciMove;
 
-    // Get move history with FEN positions (must be read before any reset)
-    const fullHistory = chess.history({ verbose: true });
+  function scoreToPercentage(score, scoreType) {
+    if (scoreType === 'mate') {
+      return score > 0 ? 100 : 0;
+    }
+    var pawns = score / 100;
+    var clamped = Math.max(-8, Math.min(8, pawns));
+    return ((clamped + 8) / 16) * 100;
+  }
+
+  function updateEvalUI(score, scoreType, bestMove) {
+    if (bestMove === undefined) bestMove = '';
+    var text = '0.0';
+    if (scoreType === 'mate') {
+      text = score > 0 ? 'M' + score : '-M' + Math.abs(score);
+    } else {
+      var pawns = (score / 100).toFixed(2);
+      text = score > 0 ? '+' + pawns : pawns;
+    }
+
+    $('#evalScore').text(text);
+    $('#evalBarText').text(text);
+
+    var percent = scoreToPercentage(score, scoreType);
+    $('#evalBarFill').css('height', percent + '%');
+    $('#bestMoveText').text(bestMove || '-');
+  }
+  R.updateEvalUI = updateEvalUI;
+
+  // --- Engine ---
+
+  async function initEngine() {
+    if (R.engineInitialized) return;
+    try {
+      setLoading(true);
+      await R.engine.init();
+      R.engineInitialized = true;
+      setLoading(false);
+    } catch (err) {
+      showError('Could not load Stockfish engine.');
+      setLoading(false);
+    }
+  }
+
+  // --- PGN Parsing ---
+
+  function parsePgn(pgnStr) {
+    var chess = new Chess();
+    chess.loadPgn(pgnStr);
+    var header = chess.header();
+    var fullHistory = chess.history({ verbose: true });
+
+    var parsedStartFen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+    if (header.FEN) {
+      parsedStartFen = header.FEN;
+    }
 
     return {
       header: header,
-      moves: fullHistory.map((m, i) => ({
-        num: Math.floor(i / 2) + 1,
-        color: m.color,
-        san: m.san,
-        fen: m.after,
-      })),
+      startFen: parsedStartFen,
+      moves: fullHistory.map(function (m, i) {
+        return {
+          num: Math.floor(i / 2) + 1,
+          color: m.color,
+          san: m.san,
+          uci: m.from + m.to + (m.promotion || ''),
+          fen: m.after,
+          beforeFen: m.before || (i === 0 ? parsedStartFen : fullHistory[i - 1].after)
+        };
+      }),
       pgn: pgnStr,
     };
   }
 
-  // Build game info display
+  // --- UI Rendering ---
+
   function displayGameInfo(parsed) {
-    const h = parsed.header;
-    const result = h.Result || '*';
-    const white = h.White || 'White';
-    const black = h.Black || 'Black';
-    const date = h.Date || 'Unknown';
-    const eco = h.ECO || '';
-    const event = h.Event || '';
-
-    gameInfo.empty();
-
-    const details = [
-      { label: 'Event', value: event },
-      { label: 'White', value: white },
-      { label: 'Black', value: black },
-      { label: 'Result', value: result },
-      { label: 'Date', value: date },
+    var h = parsed.header;
+    var details = [
+      { label: 'Event', value: h.Event },
+      { label: 'White', value: h.White || 'White' },
+      { label: 'Black', value: h.Black || 'Black' },
+      { label: 'Result', value: h.Result || '*' },
+      { label: 'Date', value: h.Date || 'Unknown' },
     ];
+    if (h.ECO) details.push({ label: 'ECO', value: h.ECO });
 
-    if (eco) details.push({ label: 'ECO', value: eco });
-
-    details.forEach((d) => {
+    $gameInfo.empty();
+    details.forEach(function (d) {
       if (!d.value) return;
       $('<p class="game-detail"></p>')
-        .html(`<strong>${d.label}:</strong> ${d.value}`)
-        .appendTo(gameInfo);
+        .html('<strong>' + d.label + ':</strong> ' + d.value)
+        .appendTo($gameInfo);
     });
   }
 
-  // Build move list
   function displayMoveList(parsed) {
-    moveList.empty();
+    $moveList.empty();
+    $('<h3>Moves</h3>').appendTo($moveList);
+    var grid = $('<div class="moves-grid"></div>').appendTo($moveList);
 
-    $('<h3>Moves</h3>').appendTo(moveList);
+    parsed.moves.forEach(function (move, i) {
+      var badge = move.classification
+        ? '<span class="move-badge ' + move.classification.classClass + '" title="' + move.classification.classification + ': ' + move.classification.desc + '">' + move.classification.symbol + '</span>'
+        : '';
 
-    const grid = $('<div class="moves-grid"></div>').appendTo(moveList);
-
-    parsed.moves.forEach((move, i) => {
       if (move.color === 'w') {
-        // White move
-        const numCell = $(`<div class="move-number">${move.num}.</div>`);
-        const whiteCell = $(
-          `<div class="move-white" data-index="${i}">${move.san}</div>`
+        grid.append(
+          $('<div class="move-number">' + move.num + '.</div>'),
+          $('<div class="move-white" data-index="' + i + '">' + move.san + ' ' + badge + '</div>')
         );
-        grid.append(numCell, whiteCell);
       } else {
-        // Black move - no number cell (it spans the empty space)
-        const blackCell = $(
-          `<div class="move-black" data-index="${i}">${move.san}</div>`
+        grid.append(
+          $('<div class="move-black" data-index="' + i + '">' + move.san + ' ' + badge + '</div>')
         );
-        grid.append(blackCell);
       }
     });
 
-    // Click handler for moves
     grid.on('click', '.move-white, .move-black', function () {
-      const index = parseInt($(this).data('index'));
-      goToMove(index);
+      var index = parseInt($(this).data('index'));
+      R.goToMove(index);
     });
   }
 
-  // Navigate to a specific move
-  function goToMove(index) {
-    currentMoveIndex = index;
-    const parsed = moveHistory[currentMoveIndex];
+  // --- Move Classification ---
 
-    // Update board
-    board.position(parsed.fen);
+  function classifyAllMoves() {
+    R.moveHistory.forEach(function (move, i) {
+      var prevScore = 0;
+      var prevScoreType = 'cp';
+      var prevBestMove = '';
 
-    // Highlight active move
-    $('.move-white, .move-black').removeClass('active');
-    const activeEls = $(`.move-white[data-index="${index}"], .move-black[data-index="${index}"]`);
-    activeEls.addClass('active');
+      if (i === 0) {
+        if (R.startPositionEval) {
+          prevScore = R.startPositionEval.score;
+          prevScoreType = R.startPositionEval.scoreType;
+          prevBestMove = R.startPositionEval.bestMove;
+        }
+      } else {
+        var prevMove = R.moveHistory[i - 1];
+        prevScore = prevMove.eval || 0;
+        prevScoreType = prevMove.evalType || 'cp';
+        prevBestMove = prevMove.bestMove || '';
+      }
 
-    // Scroll into view
-    if (activeEls.length) {
-      activeEls[0].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      var postScore = move.eval || 0;
+      var postScoreType = move.evalType || 'cp';
+
+      var pScore = prevScore;
+      if (prevScoreType === 'mate') {
+        pScore = prevScore > 0 ? 10000 - prevScore : -10000 + prevScore;
+      }
+      var currScore = postScore;
+      if (postScoreType === 'mate') {
+        currScore = postScore > 0 ? 10000 - postScore : -10000 + postScore;
+      }
+
+      var isBestMove = prevBestMove && (prevBestMove === move.uci);
+      move.classification = R.engine.classifyMove(pScore, currScore, move.color, isBestMove);
+    });
+  }
+
+  // --- Move Summary ---
+
+  function buildMoveSummary() {
+    var classificationData = [
+      { name: 'Brilliant', symbol: '\uD83D\uDC8E' },
+      { name: 'Great', symbol: '\u2757' },
+      { name: 'Best', symbol: '\u2B50' },
+      { name: 'Excellent', symbol: '\uD83D\uDFE2' },
+      { name: 'Good', symbol: '\uD83D\uDD35' },
+      { name: 'Inaccuracy', symbol: '\uD83D\uDFE1' },
+      { name: 'Miss', symbol: '\u2753' },
+      { name: 'Mistake', symbol: '\uD83D\uDFE0' },
+      { name: 'Blunder', symbol: '\uD83D\uDD34' }
+    ];
+
+    var summaryCounts = {};
+    classificationData.forEach(function (item) {
+      summaryCounts[item.name] = { white: 0, black: 0 };
+    });
+
+    R.moveHistory.forEach(function (move) {
+      if (move.classification && move.classification.classification) {
+        var className = move.classification.classification;
+        if (summaryCounts[className]) {
+          if (move.color === 'w') summaryCounts[className].white++;
+          else if (move.color === 'b') summaryCounts[className].black++;
+        }
+      }
+    });
+
+    var html = '<table class="summary-table"><thead><tr><th>Move</th><th>White</th><th>Symbol</th><th>Black</th></tr></thead><tbody>';
+    var totalWhite = 0;
+    var totalBlack = 0;
+
+    classificationData.forEach(function (item) {
+      var counts = summaryCounts[item.name];
+      var w = counts.white;
+      var b = counts.black;
+      if (w > 0 || b > 0) {
+        html += '<tr class="summary-' + item.name.toLowerCase() + '">';
+        html += '<td>' + item.symbol + ' ' + item.name + '</td>';
+        html += '<td>' + (w > 0 ? w : '') + '</td>';
+        html += '<td>' + item.symbol + '</td>';
+        html += '<td>' + (b > 0 ? b : '') + '</td></tr>';
+        totalWhite += w;
+        totalBlack += b;
+      }
+    });
+
+    html += '<tr class="summary-total"><td><strong>Total</strong></td><td><strong>' + totalWhite + '</strong></td><td></td><td><strong>' + totalBlack + '</strong></td></tr>';
+    html += '</tbody></table>';
+    $('#moveSummaryTable').html(html);
+  }
+
+  // --- Analysis Queue ---
+
+  function startFullAnalysis() {
+    if (R.moveHistory.length === 0) {
+      showError('Please load a game first.');
+      return;
+    }
+    if (R.isAnalyzingGame) {
+      stopFullAnalysis();
+      return;
+    }
+
+    initEngine().then(function () {
+      if (!R.engineInitialized) return;
+      R.isAnalyzingGame = true;
+      $('#analyzeGameBtn').text('Cancel Analysis');
+      $('#analysisProgress').removeClass('hidden');
+
+      var depth = parseInt($('#depthSelect').val()) || 15;
+      R.analysisQueue = [{ index: -1, fen: R.startFen }];
+      R.moveHistory.forEach(function (move, i) {
+        R.analysisQueue.push({ index: i, fen: move.fen });
+      });
+      R.analysisIndex = 0;
+      runNextAnalysisQueueItem(depth);
+    });
+  }
+
+  function stopFullAnalysis() {
+    R.isAnalyzingGame = false;
+    R.engine.stop();
+    $('#analyzeGameBtn').text('Analyze Game');
+    $('#analysisProgress').addClass('hidden');
+
+    if (R.currentMoveIndex >= 0 && R.currentMoveIndex < R.moveHistory.length) {
+      var parsed = R.moveHistory[R.currentMoveIndex];
+      if (parsed.eval !== undefined) {
+        updateEvalUI(parsed.eval, parsed.evalType, formatUciMove(parsed.bestMove));
+      }
+      R.renderPieceBadge();
+      R.renderBestMoveArrow();
+    } else if (R.currentMoveIndex === -1 && R.startPositionEval) {
+      updateEvalUI(R.startPositionEval.score, R.startPositionEval.scoreType, formatUciMove(R.startPositionEval.bestMove));
     }
   }
 
-  // Load game from PGN text
+  function runNextAnalysisQueueItem(depth) {
+    if (!R.isAnalyzingGame) return;
+
+    if (R.analysisIndex >= R.analysisQueue.length) {
+      finishFullAnalysis();
+      return;
+    }
+
+    var item = R.analysisQueue[R.analysisIndex];
+    var pct = Math.round((R.analysisIndex / R.analysisQueue.length) * 100);
+    $('#progressFill').css('width', pct + '%');
+    $('#progressText').text('Analyzing position ' + R.analysisIndex + ' / ' + (R.analysisQueue.length - 1) + '...');
+
+    // Skip terminal positions
+    var chess = new Chess(item.fen);
+    if (chess.isGameOver()) {
+      if (item.index === -1) {
+        R.startPositionEval = { score: 0, scoreType: 'cp', bestMove: '' };
+      } else {
+        R.moveHistory[item.index].eval = 0;
+        R.moveHistory[item.index].evalType = 'cp';
+        R.moveHistory[item.index].bestMove = '';
+      }
+      R.analysisIndex++;
+      setTimeout(function () { runNextAnalysisQueueItem(depth); }, 0);
+      return;
+    }
+
+    var lastScore = 0;
+    var lastScoreType = 'cp';
+    var timedOut = false;
+
+    var timeoutId = setTimeout(function () {
+      timedOut = true;
+      R.engine.stop();
+      if (item.index === -1) {
+        R.startPositionEval = { score: lastScore, scoreType: lastScoreType, bestMove: '' };
+      } else {
+        R.moveHistory[item.index].eval = lastScore;
+        R.moveHistory[item.index].evalType = lastScoreType;
+        R.moveHistory[item.index].bestMove = '';
+      }
+      R.analysisIndex++;
+      runNextAnalysisQueueItem(depth);
+    }, 30000);
+
+    R.engine.analyzePosition(
+      item.fen,
+      depth,
+      function (info) {
+        if (info.scoreType) {
+          lastScore = info.score;
+          lastScoreType = info.scoreType;
+          updateEvalUI(info.score, info.scoreType);
+        }
+      },
+      function (bestMove) {
+        clearTimeout(timeoutId);
+        if (item.index === -1) {
+          R.startPositionEval = { score: lastScore, scoreType: lastScoreType, bestMove: bestMove };
+        } else {
+          R.moveHistory[item.index].eval = lastScore;
+          R.moveHistory[item.index].evalType = lastScoreType;
+          R.moveHistory[item.index].bestMove = bestMove;
+        }
+        R.analysisIndex++;
+        runNextAnalysisQueueItem(depth);
+      }
+    );
+  }
+
+  function finishFullAnalysis() {
+    R.isAnalyzingGame = false;
+    $('#analyzeGameBtn').text('Analyze Game');
+    $('#analysisProgress').addClass('hidden');
+
+    classifyAllMoves();
+
+    displayMoveList({ header: {}, moves: R.moveHistory });
+    R.renderEvalChart();
+    buildMoveSummary();
+    R.goToMove(R.currentMoveIndex);
+  }
+
+  // --- Game Loading ---
+
   function loadGame(pgnText) {
     if (!pgnText || typeof pgnText !== 'string') {
       showError('Please paste a PGN.');
       return;
     }
 
-    const trimmed = pgnText.trim();
+    var trimmed = pgnText.trim();
     if (!trimmed) {
       showError('Please paste a PGN.');
       return;
     }
 
-    gameInfo.empty();
-    moveList.empty();
-    board.position('start');
-    currentMoveIndex = -1;
+    if (R.evalChartInstance) {
+      R.evalChartInstance.destroy();
+      R.evalChartInstance = null;
+    }
+
+    $gameInfo.empty();
+    $moveList.empty();
+    R.board.position('start');
+    R.currentMoveIndex = -1;
+    R.startPositionEval = null;
 
     try {
-      const parsed = parsePgn(trimmed);
-
+      var parsed = parsePgn(trimmed);
       if (!parsed.moves || parsed.moves.length === 0) {
         throw new Error('No moves found in PGN. Make sure it contains valid chess moves.');
       }
 
-      moveHistory = parsed.moves;
+      R.moveHistory = parsed.moves;
+      R.startFen = parsed.startFen;
 
       displayGameInfo(parsed);
       displayMoveList(parsed);
 
-      // Reset board to start position
-      board.position('start');
+      R.board.position('start');
+      R.updateNavState();
 
+      initEngine().then(function () {
+        R.goToMove(-1);
+      });
     } catch (err) {
-      showError(`Failed to load game: ${err.message}`);
+      showError('Failed to load game: ' + err.message);
       console.error('Load error:', err);
     }
   }
 
-  // Show Data toggle
-  showDataCheckbox.on('change', function () {
-    if ($(this).is(':checked')) {
-      dataPanel.removeClass('hidden');
-    } else {
-      dataPanel.addClass('hidden');
+  // --- Event Wiring ---
+
+  // Navigation buttons
+  $('#firstBtn').on('click', function () {
+    if (R.moveHistory.length === 0) return;
+    R.goToMove(-1);
+  });
+  $('#prevBtn').on('click', function () {
+    if (R.moveHistory.length === 0 || R.currentMoveIndex < 0) return;
+    R.goToMove(R.currentMoveIndex - 1);
+  });
+  $('#nextBtn').on('click', function () {
+    if (R.moveHistory.length === 0 || R.currentMoveIndex >= R.moveHistory.length - 1) return;
+    R.goToMove(R.currentMoveIndex + 1);
+  });
+  $('#lastBtn').on('click', function () {
+    if (R.moveHistory.length === 0) return;
+    R.goToMove(R.moveHistory.length - 1);
+  });
+  $('#flipBtn').on('click', function () {
+    R.flipBoard();
+  });
+
+  // Keyboard
+  $(document).on('keydown', function (e) {
+    if ($pgnInput.is(':focus')) return;
+
+    if (e.key === 'f' || e.key === 'F') {
+      e.preventDefault();
+      R.flipBoard();
+      return;
+    }
+    if (!R.moveHistory || R.moveHistory.length === 0) return;
+
+    if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      R.goToMove(R.currentMoveIndex + 1);
+    } else if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      R.goToMove(R.currentMoveIndex - 1);
     }
   });
 
-  // Load button click
-  loadBtn.on('click', function () {
-    const pgn = pgnInput.val();
-    loadGame(pgn);
+  // Touch/swipe
+  var touchStartX = 0;
+  var touchStartY = 0;
+  var minSwipeDistance = 40;
+  var boardDOM = document.getElementById('board');
+  if (boardDOM) {
+    boardDOM.addEventListener('touchstart', function (e) {
+      touchStartX = e.touches[0].clientX;
+      touchStartY = e.touches[0].clientY;
+    }, { passive: true });
+    boardDOM.addEventListener('touchmove', function (e) {
+      e.preventDefault();
+    }, { passive: false });
+    boardDOM.addEventListener('touchend', function (e) {
+      if (!R.moveHistory || R.moveHistory.length === 0) return;
+      var touch = e.changedTouches[0];
+      var dx = touch.clientX - touchStartX;
+      var dy = touch.clientY - touchStartY;
+      if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > minSwipeDistance) {
+        if (dx < 0) R.goToMove(R.currentMoveIndex + 1);
+        else R.goToMove(R.currentMoveIndex - 1);
+      }
+    }, { passive: false });
+  }
+
+  // Show data toggle
+  $showData.on('change', function () {
+    $dataPanel.toggleClass('hidden', !$(this).is(':checked'));
   });
 
-  // Ctrl+Enter / Cmd+Enter in textarea
-  pgnInput.on('keydown', function (e) {
+  // Load game
+  $loadBtn.on('click', function () {
+    loadGame($pgnInput.val());
+  });
+
+  // Ctrl/Cmd+Enter
+  $pgnInput.on('keydown', function (e) {
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-      loadBtn.click();
+      $loadBtn.click();
     }
   });
 
-  // Initialize
-  initBoard();
-  dataPanel.removeClass('hidden');
-});
+  // Analyze
+  $('#analyzeGameBtn').on('click', function () {
+    startFullAnalysis();
+  });
+
+  // --- Bootstrap ---
+
+  R.initBoard();
+  $dataPanel.removeClass('hidden');
+
+  var initialPgn = $pgnInput.val();
+  if (initialPgn) {
+    loadGame(initialPgn);
+  }
+})();

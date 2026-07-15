@@ -6,6 +6,7 @@
   <title>Chess Review</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.css" />
   <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="components.css" />
 </head>
 <body>
   <div class="app">
@@ -18,8 +19,25 @@
             id="pgnInput"
             class="pgn-input"
             rows="4"
-            placeholder="Paste PGN here...&#10;&#10;e.g. 1. e4 e5 2. Nf3 Nc6 3. Bb5 a6"
-          ></textarea>
+
+          >[Event "Live Chess"]
+[Site "Chess.com"]
+[Date "2026.07.10"]
+[Round "?"]
+[White "vishal6877"]
+[Black "jkz1234"]
+[Result "0-1"]
+[TimeControl "600"]
+[WhiteElo "504"]
+[BlackElo "498"]
+[Termination "jkz1234 won by checkmate"]
+[ECO "C50"]
+[EndTime "10:28:36 GMT+0000"]
+[Link "https://www.chess.com/game/live/171373296294?move=0"]
+
+1. e4 e5 2. Nf3 Nc6 3. Nc3 Nf6 4. Bc4 Bc5 5. d3 d6 6. O-O O-O 7. Ng5 h6 8. Nf3
+Bg4 9. Nb5 Qd7 10. h3 Bh5 11. g4 Bg6 12. Nh4 Ne7 13. a4 a6 14. Nc3 Rfe8 15. g5
+Bh5 16. Qd2 Qxh3 17. Ng2 Bf3 18. Rd1 Qxg2# 0-1</textarea>
           <button id="loadBtn" class="btn btn-primary">Load Game</button>
         </div>
       </div>
@@ -29,7 +47,30 @@
     <main class="main-content">
       <!-- Board Section -->
       <section class="board-section">
-        <div id="board" class="board"></div>
+        <div class="board-wrapper">
+          <div class="eval-bar-container">
+            <div id="evalBar" class="eval-bar">
+              <div id="evalBarFill" class="eval-bar-fill"></div>
+              <div id="evalBarText" class="eval-bar-text">0.0</div>
+            </div>
+          </div>
+          <div class="board-container">
+            <div id="board" class="board"></div>
+            <div id="boardOverlays" class="board-overlays">
+              <svg id="arrowSvg" class="arrow-svg"></svg>
+              <div id="badgeContainer" class="badge-container"></div>
+            </div>
+          </div>
+        </div>
+        <!-- Game Navigation Controls -->
+        <div class="game-controls">
+          <button id="firstBtn" class="ctrl-btn" title="Go to start" aria-label="Go to start">⏮</button>
+          <button id="prevBtn" class="ctrl-btn" title="Previous move" aria-label="Previous move">◀</button>
+          <button id="flipBtn" class="ctrl-btn" title="Flip Board (f)" aria-label="Flip Board">🔁</button>
+          <span id="moveCounter" class="move-counter">0 / 0</span>
+          <button id="nextBtn" class="ctrl-btn" title="Next move" aria-label="Next move">▶</button>
+          <button id="lastBtn" class="ctrl-btn" title="Go to end" aria-label="Go to end">⏭</button>
+        </div>
       </section>
 
       <!-- Data Section -->
@@ -44,17 +85,61 @@
         <div id="gameInfo" class="game-info">
           <p class="placeholder-text">No game loaded yet. Paste a PGN and click "Load Game".</p>
         </div>
+        
+        <!-- Analysis Panel -->
+        <div class="analysis-panel">
+          <h3>Engine Analysis</h3>
+          <div class="analysis-controls">
+            <label for="depthSelect">Depth:</label>
+            <select id="depthSelect" class="depth-select">
+              <option value="10">10</option>
+              <option value="12">12</option>
+              <option value="15" selected>15</option>
+              <option value="18">18</option>
+              <option value="20">20</option>
+            </select>
+            <button id="analyzeGameBtn" class="btn btn-secondary">Analyze Game</button>
+          </div>
+          <div id="analysisProgress" class="analysis-progress hidden">
+            <div class="progress-bar"><div id="progressFill" class="progress-bar-fill"></div></div>
+            <span id="progressText">Analyzing move 0/0...</span>
+          </div>
+          <div id="engineStatus" class="engine-status">
+            <div class="status-row"><strong>Evaluation:</strong> <span id="evalScore">0.0</span></div>
+            <div class="status-row"><strong>Best Move:</strong> <span id="bestMoveText">-</span></div>
+          </div>
+        </div>
+
+        <!-- Eval Chart -->
+        <div class="chart-container">
+          <h3>Evaluation Graph</h3>
+          <canvas id="evalChart"></canvas>
+        </div>
+
+        <!-- Move Summary -->
+        <div id="moveSummaryContainer" class="summary-container">
+          <h3>Move Summary</h3>
+          <div id="moveSummaryTable">
+            <p class="placeholder-text">Analyzing game to generate summary...</p>
+          </div>
+        </div>
+
         <div id="moveList" class="move-list"></div>
       </aside>
     </main>
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.js"></script>
   <script type="module">
     import { Chess } from "https://cdn.jsdelivr.net/npm/chess.js@1.0.0-beta.8/dist/esm/chess.js";
     window.Chess = Chess;
   </script>
+  <script src="analysis.js"></script>
+  <script src="state.js"></script>
+  <script src="board.js"></script>
+  <script src="chart.js"></script>
   <script src="script.js"></script>
 </body>
 </html>
