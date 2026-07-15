@@ -11,15 +11,15 @@ stories:
   - story_id: e01s01
     title: "Proxy server + explanation panel end-to-end"
     bcps: 5
-    status: planned
+    status: passing
   - story_id: e01s02
     title: "Jump-to-error navigation"
     bcps: 3
-    status: planned
+    status: passing
   - story_id: e01s03
     title: "Config toggle for mistakes + model swapping"
     bcps: 2
-    status: planned
+    status: passing
 dependencies: []
 references:
   - specs/product/SCOPE_LATEST.yaml
