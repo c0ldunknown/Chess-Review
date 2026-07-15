@@ -523,6 +523,12 @@
     if (R.moveHistory.length === 0) return;
     R.goToMove(R.moveHistory.length - 1);
   });
+  $('#prevErrorBtn').on('click', function () {
+    R.goToPrevError();
+  });
+  $('#nextErrorBtn').on('click', function () {
+    R.goToNextError();
+  });
   $('#flipBtn').on('click', function () {
     R.flipBoard();
   });
@@ -538,7 +544,13 @@
     }
     if (!R.moveHistory || R.moveHistory.length === 0) return;
 
-    if (e.key === 'ArrowRight') {
+    if (e.shiftKey && e.key === 'ArrowRight') {
+      e.preventDefault();
+      R.goToNextError();
+    } else if (e.shiftKey && e.key === 'ArrowLeft') {
+      e.preventDefault();
+      R.goToPrevError();
+    } else if (e.key === 'ArrowRight') {
       e.preventDefault();
       R.goToMove(R.currentMoveIndex + 1);
     } else if (e.key === 'ArrowLeft') {

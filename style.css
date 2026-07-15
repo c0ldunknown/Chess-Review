@@ -272,6 +272,20 @@ body {
   border-color: #2d2d4a;
 }
 
+.ctrl-btn-error {
+  border-color: #8b3a3a;
+}
+
+.ctrl-btn-error:hover {
+  border-color: #e74c3c;
+  background: #2a1a1a;
+}
+
+.ctrl-btn-error:disabled:hover {
+  border-color: #2d2d4a;
+  background: #16213e;
+}
+
 .move-counter {
   font-size: 0.95rem;
   font-weight: 600;

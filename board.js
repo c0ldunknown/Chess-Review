@@ -155,6 +155,19 @@
     $('#nextBtn').prop('disabled', current >= total - 1);
     $('#lastBtn').prop('disabled', current >= total - 1);
 
+    // Check if any errors exist
+    var hasErrors = false;
+    for (var i = 0; i < R.moveHistory.length; i++) {
+      var m = R.moveHistory[i];
+      if (m.classification && (m.classification.classification === 'blunder' ||
+          (m.classification.classification === 'mistake' && R.explainMistakes))) {
+        hasErrors = true;
+        break;
+      }
+    }
+    $('#prevErrorBtn').prop('disabled', !hasErrors);
+    $('#nextErrorBtn').prop('disabled', !hasErrors);
+
     $('#moveCounter').text((current + 1) + ' / ' + total);
   };
 
@@ -247,6 +260,37 @@
     R.updateNavState();
     R.updateChartPosition();
     R.updateExplanationPanel();
+  };
+
+  /** Scan backward to find the nearest blunder/mistake. */
+  R.goToPrevError = function () {
+    if (!R.moveHistory || R.moveHistory.length === 0) return;
+    for (var i = R.currentMoveIndex - 1; i >= -1; i--) {
+      if (i === -1) {
+        R.goToMove(-1);
+        return;
+      }
+      var move = R.moveHistory[i];
+      if (move.classification && (move.classification.classification === 'blunder' ||
+          (move.classification.classification === 'mistake' && R.explainMistakes))) {
+        R.goToMove(i);
+        return;
+      }
+    }
+    R.goToMove(-1);
+  };
+
+  /** Scan forward to find the nearest blunder/mistake. */
+  R.goToNextError = function () {
+    if (!R.moveHistory || R.moveHistory.length === 0) return;
+    for (var i = R.currentMoveIndex + 1; i < R.moveHistory.length; i++) {
+      var move = R.moveHistory[i];
+      if (move.classification && (move.classification.classification === 'blunder' ||
+          (move.classification.classification === 'mistake' && R.explainMistakes))) {
+        R.goToMove(i);
+        return;
+      }
+    }
   };
 
   /** Flip the board. */

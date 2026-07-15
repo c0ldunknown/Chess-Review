@@ -9,13 +9,13 @@ session:
   active_story_id: null
 
 git:
-  branch: main
-  head: 5b9016a
+  branch: jeremykozura/jkh-3-natural-language-analysis
+  head: d71bfcc
   clean: true
 
 handoff:
-  next_skill: kickoff-branch
-  notes: "Plans written for e01 (natural language blunder analysis). 3 stories: proxy+panel, jump-to-error, config toggle. Ready to build."
+  next_skill: develop-tdd
+  notes: "Branch created for e01 (natural language blunder analysis). e01s01 (proxy+panel) is the first story."
 
 metrics:
   story_start: null
