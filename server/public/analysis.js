@@ -19,9 +19,15 @@ class ChessAnalysis {
     try {
       // Create a Worker that loads stockfish.wasm via importScripts
       // The WASM loader is async, so we need to wait for it to signal ready
+      // Derive the WASM base URL from the stockfish.js CDN path
+      var wasmBase = this.cdnUrl.substring(0, this.cdnUrl.lastIndexOf('/') + 1);
       const workerScript = [
         'importScripts("' + this.cdnUrl + '");',
-        'var sf = Stockfish();',
+        'var sf = Stockfish({',
+        '  locateFile: function(path) {',
+        '    return "' + wasmBase + '" + path;',
+        '  }',
+        '});',
         'sf.ready.then(function() {',
         '  sf.addMessageListener(function(msg) { self.postMessage(msg); });',
         '  self.onmessage = function(e) { sf.postMessage(e.data); };',
