@@ -107,7 +107,7 @@ body {
 }
 
 .board-section {
-  flex-shrink: 0;
+  flex: 0 0 auto;
 }
 
 .board-wrapper {
@@ -270,6 +270,20 @@ body {
 .ctrl-btn:disabled:hover {
   background: #16213e;
   border-color: #2d2d4a;
+}
+
+.ctrl-btn-error {
+  border-color: #8b3a3a;
+}
+
+.ctrl-btn-error:hover {
+  border-color: #e74c3c;
+  background: #2a1a1a;
+}
+
+.ctrl-btn-error:disabled:hover {
+  border-color: #2d2d4a;
+  background: #16213e;
 }
 
 .move-counter {

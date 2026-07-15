@@ -275,13 +275,26 @@
       $('#analyzeGameBtn').text('Cancel Analysis');
       $('#analysisProgress').removeClass('hidden');
 
-      var depth = parseInt($('#depthSelect').val()) || 15;
+      // Read search mode from UI
+      var searchMode = $('input[name="searchMode"]:checked').val() || 'time';
+      var searchValue = parseInt($('#depthSelect').val()) || 8;
+
+      // Configure engine
+      R.engine.searchMode = searchMode;
+      if (searchMode === 'time') {
+        R.engine.searchTime = searchValue * 1000;
+      } else {
+        // Ensure depth mode has a fallback if value looks like seconds
+        var depthVal = searchValue > 30 ? 15 : searchValue;
+        R.engine.searchTime = 8000;
+      }
+
       R.analysisQueue = [{ index: -1, fen: R.startFen }];
       R.moveHistory.forEach(function (move, i) {
         R.analysisQueue.push({ index: i, fen: move.fen });
       });
       R.analysisIndex = 0;
-      runNextAnalysisQueueItem(depth);
+      runNextAnalysisQueueItem();
     });
   }
 
@@ -303,7 +316,7 @@
     }
   }
 
-  function runNextAnalysisQueueItem(depth) {
+  function runNextAnalysisQueueItem() {
     if (!R.isAnalyzingGame) return;
 
     if (R.analysisIndex >= R.analysisQueue.length) {
@@ -327,13 +340,20 @@
         R.moveHistory[item.index].bestMove = '';
       }
       R.analysisIndex++;
-      setTimeout(function () { runNextAnalysisQueueItem(depth); }, 0);
+      setTimeout(function () { runNextAnalysisQueueItem(); }, 0);
       return;
     }
 
     var lastScore = 0;
     var lastScoreType = 'cp';
     var timedOut = false;
+
+    // Adaptive timeout based on search mode
+    var timeoutMs = 30000;
+    var depthArg = 15;
+    if (R.engine.searchMode === 'time') {
+      timeoutMs = R.engine.searchTime + 5000;
+    }
 
     var timeoutId = setTimeout(function () {
       timedOut = true;
@@ -346,12 +366,12 @@
         R.moveHistory[item.index].bestMove = '';
       }
       R.analysisIndex++;
-      runNextAnalysisQueueItem(depth);
-    }, 30000);
+      runNextAnalysisQueueItem();
+    }, timeoutMs);
 
     R.engine.analyzePosition(
       item.fen,
-      depth,
+      depthArg,
       function (info) {
         if (info.scoreType) {
           lastScore = info.score;
@@ -369,15 +389,128 @@
           R.moveHistory[item.index].bestMove = bestMove;
         }
         R.analysisIndex++;
-        runNextAnalysisQueueItem(depth);
+        runNextAnalysisQueueItem();
       }
     );
+  }
+
+  // --- Explanation Panel ---
+
+  /** Show the current move's explanation from cache (or empty text). */
+  function updateExplanationPanel() {
+    var textEl = $('#explanationText');
+
+    if (R.currentMoveIndex < 0 || R.currentMoveIndex >= R.moveHistory.length) {
+      textEl.text('No game loaded yet.');
+      return;
+    }
+
+    var move = R.moveHistory[R.currentMoveIndex];
+    if (!move.classification) {
+      textEl.text('');
+      return;
+    }
+
+    var classification = move.classification.classification;
+    if (classification !== 'Blunder' && classification !== 'Mistake') {
+      textEl.text('');
+      return;
+    }
+
+    if (classification === 'Mistake' && !R.explainMistakes) {
+      textEl.text('');
+      return;
+    }
+
+    // Respect filter
+    if (R.errorFilter !== 'both' && move.color !== R.errorFilter) {
+      textEl.text('');
+      return;
+    }
+
+    var cacheKey = classification.toLowerCase() + ':' + move.uci;
+    if (R.explanationCache[cacheKey]) {
+      textEl.text(R.explanationCache[cacheKey]);
+    } else {
+      textEl.text('Generating explanation...');
+    }
+  }
+  R.updateExplanationPanel = updateExplanationPanel;
+
+  /** Preload explanations for all blunders/mistakes regardless of filter. */
+  function preloadExplanations() {
+    var errorMoves = [];
+    R.moveHistory.forEach(function (move, i) {
+      if (!move.classification) return;
+      var c = move.classification.classification;
+      if (c !== 'Blunder' && (c !== 'Mistake' || !R.explainMistakes)) return;
+      errorMoves.push({ index: i, move: move, classification: c });
+    });
+
+    if (errorMoves.length === 0) {
+      $('#explanationText').text('No blunders or mistakes to analyze.');
+      return;
+    }
+
+    $('#analysisProgress').removeClass('hidden');
+    var done = 0;
+
+    function fetchNext() {
+      if (done >= errorMoves.length) {
+        $('#analysisProgress').addClass('hidden');
+        $('#analyzeGameBtn').text('Analyze Game');
+        R.updateExplanationPanel();
+        return;
+      }
+
+      var item = errorMoves[done];
+      var cacheKey = item.classification.toLowerCase() + ':' + item.move.uci;
+
+      // Skip if already cached
+      if (R.explanationCache[cacheKey]) {
+        done++;
+        fetchNext();
+        return;
+      }
+
+      var pct = Math.round((done / errorMoves.length) * 100);
+      $('#progressFill').css('width', pct + '%');
+      $('#progressText').text('Generating explanations ' + (done + 1) + ' / ' + errorMoves.length + '...');
+
+      $.ajax({
+        url: '/api/explain',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({
+          move: item.move.san,
+          bestMove: formatUciMove(item.move.bestMove) || '',
+          classification: item.classification.toLowerCase(),
+          fen: item.move.fen
+        }),
+        success: function (response) {
+          if (response.explanation) {
+            R.explanationCache[cacheKey] = response.explanation;
+          }
+        },
+        error: function () {
+          R.explanationCache[cacheKey] = 'Could not load explanation.';
+        },
+        complete: function () {
+          done++;
+          fetchNext();
+        }
+      });
+    }
+
+    fetchNext();
   }
 
   function finishFullAnalysis() {
     R.isAnalyzingGame = false;
     $('#analyzeGameBtn').text('Analyze Game');
-    $('#analysisProgress').addClass('hidden');
+    $('#analysisProgress').removeClass('hidden');
+    $('#progressFill').css('width', '0%');
+    $('#progressText').text('Generating explanations...');
 
     classifyAllMoves();
 
@@ -385,6 +518,8 @@
     R.renderEvalChart();
     buildMoveSummary();
     R.goToMove(R.currentMoveIndex);
+
+    preloadExplanations();
   }
 
   // --- Game Loading ---
@@ -455,6 +590,12 @@
     if (R.moveHistory.length === 0) return;
     R.goToMove(R.moveHistory.length - 1);
   });
+  $('#prevErrorBtn').on('click', function () {
+    R.goToPrevError();
+  });
+  $('#nextErrorBtn').on('click', function () {
+    R.goToNextError();
+  });
   $('#flipBtn').on('click', function () {
     R.flipBoard();
   });
@@ -470,7 +611,13 @@
     }
     if (!R.moveHistory || R.moveHistory.length === 0) return;
 
-    if (e.key === 'ArrowRight') {
+    if (e.shiftKey && e.key === 'ArrowRight') {
+      e.preventDefault();
+      R.goToNextError();
+    } else if (e.shiftKey && e.key === 'ArrowLeft') {
+      e.preventDefault();
+      R.goToPrevError();
+    } else if (e.key === 'ArrowRight') {
       e.preventDefault();
       R.goToMove(R.currentMoveIndex + 1);
     } else if (e.key === 'ArrowLeft') {
@@ -514,10 +661,44 @@
     loadGame($pgnInput.val());
   });
 
+  // Load debug game (fill example PGN)
+  $('#debugGameBtn').on('click', function () {
+    var example = R.examplePgn || '';
+    $pgnInput.val(example);
+    loadGame(example);
+  });
+
   // Ctrl/Cmd+Enter
   $pgnInput.on('keydown', function (e) {
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
       $loadBtn.click();
+    }
+  });
+
+  // Error filter
+  $('#errorFilter').on('change', function () {
+    R.errorFilter = $(this).val();
+    R.updateNavState();
+    R.updateExplanationPanel();
+  });
+
+  // Search mode toggle — switch dropdown values
+  $('input[name="searchMode"]').on('change', function () {
+    var mode = $(this).val();
+    var $select = $('#depthSelect');
+    $select.empty();
+    if (mode === 'time') {
+      $select.append('<option value="2">2s</option>');
+      $select.append('<option value="5">5s</option>');
+      $select.append('<option value="8" selected>8s</option>');
+      $select.append('<option value="15">15s</option>');
+      $select.append('<option value="30">30s</option>');
+    } else {
+      $select.append('<option value="10">10</option>');
+      $select.append('<option value="12">12</option>');
+      $select.append('<option value="15" selected>15</option>');
+      $select.append('<option value="18">18</option>');
+      $select.append('<option value="20">20</option>');
     }
   });
 

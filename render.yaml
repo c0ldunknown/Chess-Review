@@ -1,0 +1,19 @@
+# render.yaml — Chess Review deployment config
+# Deploy: connect GitHub repo to Render, set env vars in dashboard
+services:
+  - type: web
+    name: chess-review
+    env: node
+    region: oregon
+    buildCommand: cd server && npm install
+    startCommand: node server/index.js
+    healthCheckPath: /api/health
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: OPENROUTER_API_KEY
+        sync: false # set in Render dashboard — NEVER commit to repo
+      - key: MODEL_NAME
+        value: deepseek/deepseek-chat
+      - key: EXPLAIN_MISTAKES
+        value: "true"

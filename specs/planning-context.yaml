@@ -1,25 +1,48 @@
 # specs/planning-context.yaml — written by elaborate-spec
-feature_name: "natural-language-blunder-analysis"
-problem_statement: "When reviewing a chess game, blunders and mistakes get a classification badge but no explanation of why they're bad or what the player should have played instead."
+feature_name: "render-deployment-and-time-based-search"
+problem_statement: |
+  The app works only locally (python3 http server + node proxy on separate ports).
+  Stockfish uses fixed-depth search (go depth 15) giving inconsistent per-move times
+  — some positions finish in 1s, others hit the 30s timeout. We need to deploy so the
+  user and their friends can use it online, and add time-based search for consistent
+  per-move analysis speed.
 constraints:
   - "Must remain a static vanilla JS frontend (no build step)"
-  - "LLM API calls go through a tiny Node.js Express backend proxy (holds OpenRouter API key)"
-  - "DeepSeek V4 Flash via OpenRouter for cost-efficient generation"
-  - "Must support easy model swapping for future experimentation"
-  - "Explanations must be concise (1-2 sentences, matter-of-fact tone)"
-  - "Mistake explanations must be toggleable via a single config flag"
+  - "Express backend proxy holds the OpenRouter API key"
+  - "Render free tier (spins down on inactivity)"
+  - "Depth mode must still work for testing alongside new time mode"
+  - "Local dev workflow must still work (python3 -m http.server + node server/index.js)"
 out_of_scope:
-  - "Explanations for non-error moves (good, excellent, brilliant, etc.)"
+  - "Stockfish WASM migration (future performance improvement)"
+  - "Supabase / game storage integration"
+  - "Custom domain"
+  - "CI/CD beyond Render auto-deploy from git"
+  - "Explanation filtering by side (already handled in current code)"
+out_of_scope_permanent:
   - "Multi-language support"
   - "Voice/audio explanations"
-  - "Saving or exporting explanations"
-  - "Hosted deployment (local only for now)"
+  - "Explanations for non-error moves"
 key_decisions:
-  - decision: "DeepSeek V4 Flash via OpenRouter as the LLM provider"
-    rationale: "Cost-efficient and already in use by the user; OpenRouter makes model swapping trivial"
-  - decision: "Node.js Express backend proxy"
-    rationale: "Same language as frontend; lightweight; easy to host later on Railway/Fly.io"
-  - decision: "Explanations generated per-move on demand, cached after first fetch"
-    rationale: "Avoids regenerating explanations on every navigation; only blunders/mistakes trigger a call"
-  - decision: "Mistake explanations toggleable via config flag in the backend or frontend"
-    rationale: "User wants mistakes optionally shown; one-flag disable keeps it simple"
+  - decision: "Render free tier web service"
+    rationale: "Zero cost, zero config beyond one YAML file, supports Node.js + static files"
+  - decision: "Single Express service serving static files + API"
+    rationale: "Simplest deploy, no CORS, future-proof for Supabase"
+  - decision: "Time-based Stockfish with mode toggle (Depth | Time)"
+    rationale: "Gives consistent per-move analysis time while preserving depth mode for testing"
+  - decision: "Time dropdown values: 2s / 5s / 8s / 15s / 30s"
+    rationale: "Matches Lichess default (8s) with faster/slower options"
+  - decision: "Per-position timeout = movetime + 5s buffer"
+    rationale: "Prevents hangs without cutting off legitimate searches"
+unresolved:
+  - question: "File layout — use public/ directory or serve from repo root?"
+    options:
+      - "public/ directory (cleaner, conventional)"
+      - "Serve from root (fewer file moves)"
+  - question: "Deploy from main or current feature branch?"
+    options:
+      - "main (stable)"
+      - "jeremykozura/jkh-3-natural-language-analysis (work in progress)"
+  - question: "Keep example PGN in textarea or replace with placeholder?"
+    options:
+      - "Keep example game (ready to load)"
+      - "Placeholder text (Paste PGN here...)"

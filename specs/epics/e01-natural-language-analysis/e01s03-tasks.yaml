@@ -6,13 +6,13 @@ description: >
   support easy model swapping via environment variable so the user can
   experiment with different OpenRouter models.
 bcps: 2
-status: failing
+status: passing
 tasks:
   - id: e01s03t01
     description: "Add MODEL_NAME and EXPLAIN_MISTAKES to server/.env"
     verify: "grep -q 'MODEL_NAME' server/.env && grep -q 'EXPLAIN_MISTAKES' server/.env && echo 'ENV_CONFIGURED'"
     risk: P2
-    status: failing
+    status: passing
     allure:
       severity: normal
       categories:
@@ -21,7 +21,7 @@ tasks:
     description: "Read MODEL_NAME from env in Express server for OpenRouter call"
     verify: "grep -q 'process.env.MODEL_NAME' server/index.js && echo 'MODEL_ENV_READ'"
     risk: P2
-    status: failing
+    status: passing
     allure:
       severity: normal
       categories:
@@ -30,16 +30,16 @@ tasks:
     description: "Read EXPLAIN_MISTAKES flag from env and respect it in API response"
     verify: "grep -q 'EXPLAIN_MISTAKES' server/index.js && echo 'MISTAKES_FLAG_READ'"
     risk: P2
-    status: failing
+    status: passing
     allure:
       severity: normal
       categories:
         - "Infrastructure"
   - id: e01s03t04
     description: "Create server/.env.example and add server/.env to .gitignore"
-    verify: "test -f server/.env.example && grep -q 'server/.env' .gitignore && echo 'DOCS_DONE'"
+    verify: "test -f server/.env.example && git check-ignore server/.env && echo 'DOCS_DONE'"
     risk: P3
-    status: failing
+    status: passing
     allure:
       severity: minor
       categories:

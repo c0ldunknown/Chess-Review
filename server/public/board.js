@@ -85,7 +85,10 @@
     container.appendChild(badge);
   };
 
-  /** Render a best-move arrow on the board. */
+  /** Render a best-move arrow on the board.
+   *  Shows the engine's best move from the PREVIOUS position (the position
+   *  the player was in when they made their choice).
+   */
   R.renderBestMoveArrow = function () {
     const svg = document.getElementById('arrowSvg');
     if (!svg) return;
@@ -95,8 +98,13 @@
 
     if (R.currentMoveIndex < 0 || R.currentMoveIndex >= R.moveHistory.length) return;
 
-    const move = R.moveHistory[R.currentMoveIndex];
-    const bestMove = move.bestMove;
+    // Get the best move from the PREVIOUS position's analysis
+    var bestMove;
+    if (R.currentMoveIndex === 0) {
+      bestMove = R.startPositionEval ? R.startPositionEval.bestMove : null;
+    } else {
+      bestMove = R.moveHistory[R.currentMoveIndex - 1].bestMove;
+    }
     if (!bestMove || bestMove.length < 4) return;
 
     const fromSquare = bestMove.substring(0, 2);
@@ -154,6 +162,17 @@
     $('#prevBtn').prop('disabled', current <= -1);
     $('#nextBtn').prop('disabled', current >= total - 1);
     $('#lastBtn').prop('disabled', current >= total - 1);
+
+    // Check if any errors exist (respecting the current filter)
+    var hasErrors = false;
+    for (var i = 0; i < R.moveHistory.length; i++) {
+      if (isErrorMove(R.moveHistory[i])) {
+        hasErrors = true;
+        break;
+      }
+    }
+    $('#prevErrorBtn').prop('disabled', !hasErrors);
+    $('#nextErrorBtn').prop('disabled', !hasErrors);
 
     $('#moveCounter').text((current + 1) + ' / ' + total);
   };
@@ -246,6 +265,43 @@
 
     R.updateNavState();
     R.updateChartPosition();
+    R.updateExplanationPanel();
+  };
+
+  /** Check if a move's classification matches the current error filter. */
+  function isErrorMove(move) {
+    if (!move || !move.classification) return false;
+    var c = move.classification.classification;
+    if (c !== 'Blunder' && (c !== 'Mistake' || !R.explainMistakes)) return false;
+    if (R.errorFilter === 'both') return true;
+    return move.color === R.errorFilter;
+  }
+
+  /** Scan backward to find the nearest blunder/mistake. */
+  R.goToPrevError = function () {
+    if (!R.moveHistory || R.moveHistory.length === 0) return;
+    for (var i = R.currentMoveIndex - 1; i >= -1; i--) {
+      if (i === -1) {
+        R.goToMove(-1);
+        return;
+      }
+      if (isErrorMove(R.moveHistory[i])) {
+        R.goToMove(i);
+        return;
+      }
+    }
+    R.goToMove(-1);
+  };
+
+  /** Scan forward to find the nearest blunder/mistake. */
+  R.goToNextError = function () {
+    if (!R.moveHistory || R.moveHistory.length === 0) return;
+    for (var i = R.currentMoveIndex + 1; i < R.moveHistory.length; i++) {
+      if (isErrorMove(R.moveHistory[i])) {
+        R.goToMove(i);
+        return;
+      }
+    }
   };
 
   /** Flip the board. */

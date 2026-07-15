@@ -1,21 +1,38 @@
 # specs/release-plan.yaml
-target_version: "0.2.0"
-name: "Natural language blunder analysis"
+target_version: "0.3.0"
+name: "Render deployment + time-based Stockfish search"
 epics:
   - epic_id: e01
     title: "Natural language blunder analysis"
     wsif: 10
-    status: planned
+    status: completed
     stories:
       - story_id: e01s01
         title: "Proxy server + explanation panel end-to-end"
         bcps: 5
-        status: planned
+        status: completed
       - story_id: e01s02
         title: "Jump-to-error navigation"
         bcps: 3
-        status: planned
+        status: completed
       - story_id: e01s03
         title: "Config toggle for mistakes + model swapping"
+        bcps: 2
+        status: completed
+  - epic_id: e02
+    title: "Render deployment + time-based Stockfish search"
+    wsif: 10
+    status: planned
+    stories:
+      - story_id: e02s01
+        title: "Time-based Stockfish search"
+        bcps: 3
+        status: planned
+      - story_id: e02s02
+        title: "Single-service Express with static files"
+        bcps: 3
+        status: planned
+      - story_id: e02s03
+        title: "Render deployment"
         bcps: 2
         status: planned

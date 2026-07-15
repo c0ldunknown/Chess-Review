@@ -1,0 +1,96 @@
+# e02s02-tasks.yaml
+story_id: e02s02
+title: "Single-service Express with static files"
+bcps: 3
+status: passing
+description: >
+  Restructure the project so Express serves both the API and the static
+  frontend files from server/public/. API URLs become relative (/api/explain)
+  so they work in both local dev and production. Add a "Load debug game"
+  button that fills in the example PGN for quick testing.
+tasks:
+  - id: e02s02t01
+    description: >
+      Create server/public/ directory. Move all frontend files into it:
+      index.html, analysis.js, board.js, chart.js, state.js, script.js,
+      style.css, components.css. Update any relative asset paths in index.html
+      (scripts, stylesheets) to point to the new public/ root.
+    verify: |
+      test -f server/public/index.html && test -f server/public/script.js && test -f server/public/style.css
+    risk: P1
+    status: passing
+    allure:
+      severity: high
+      categories:
+        - "Infrastructure"
+
+  - id: e02s02t02
+    description: >
+      Add express.static('public') to server/index.js. The server now serves
+      index.html at GET / and the API at /api/explain on the same port.
+    verify: |
+      grep -q "express.static.*public" server/index.js
+    risk: P1
+    status: passing
+    allure:
+      severity: high
+      categories:
+        - "Infrastructure"
+
+  - id: e02s02t03
+    description: >
+      Update frontend API URLs in script.js. Change AJAX calls from
+      http://localhost:3001/api/explain to /api/explain (relative).
+    verify: |
+      grep -q "api/explain" server/public/script.js && ! grep -q 'localhost:3001' server/public/script.js
+    risk: P1
+    status: passing
+    allure:
+      severity: high
+      categories:
+        - "Infrastructure"
+
+  - id: e02s02t04
+    description: >
+      Replace the hardcoded example PGN in the textarea with placeholder text
+      "Paste a PGN here to analyze...". Add a "Load debug game" button or link
+      below the textarea that fills in a working example game for testing.
+    verify: |
+      grep -q 'Paste a PGN' server/public/index.html && grep -q 'debug\|example\|Demo' server/public/index.html
+    risk: P2
+    status: passing
+    allure:
+      severity: normal
+      categories:
+        - "UI"
+
+  - id: e02s02t05
+    description: >
+      Add the example PGN as a JS variable in the app and wire the Load debug
+      game button click to fill the textarea and trigger game loading.
+    verify: |
+      grep -q 'examplePgn' server/public/script.js
+    risk: P2
+    status: passing
+    allure:
+      severity: normal
+      categories:
+        - "UI"
+
+  - id: e02s02t06
+    description: >
+      Verify local dev workflow: kill any running servers, run
+      `node server/index.js`, open http://localhost:3001. Full app loads —
+      board renders, PGN input works, Analyze Game runs Stockfish,
+      explanation panel calls /api/explain successfully.
+    verify: |
+      cd server && node index.js &
+      sleep 2
+      curl -s http://localhost:3001 | grep -q 'Chess Review'
+      kill %1 2>/dev/null
+    risk: P1
+    status: passing
+    allure:
+      severity: high
+      categories:
+        - "Integration"
